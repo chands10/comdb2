@@ -903,6 +903,12 @@ void key_setdatakey(void)
     macc_globals->workkeyflag |= DATAKEY;
 }
 
+void key_setpartialdatakey(void)
+{
+    logmsg(LOGMSG_WARN, "USING PARTIAL DATAKEY\n");
+    macc_globals->workkeyflag |= PARTIALDATAKEY;
+}
+
 void key_setuniqnulls(void)
 {
     CHECK_LEGACY_SCHEMA(1);
@@ -1263,6 +1269,10 @@ void key_piece_add(char *buf,
         addtokey(i, tidx, el, rg); /* add this key to compound key */
     }
     macc_globals->workkeypieceflag = 0;
+}
+
+void datakey_piece_add(char *buf) {
+    logmsg(LOGMSG_WARN, "%s\n", buf);
 }
 
 extern int is_valid_datetime(const char *str, const char *tz);

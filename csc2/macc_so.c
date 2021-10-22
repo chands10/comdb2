@@ -2602,6 +2602,12 @@ int dyns_is_idx_datacopy(int index)
     return dyns_is_idx_flagged(index, DATAKEY);
 }
 
+/* is key copy-data key (partially)? */
+int dyns_is_idx_partial_datacopy(int index)
+{
+    return dyns_is_idx_flagged(index, PARTIALDATAKEY);
+}
+
 /* is key duplicate? */
 int dyns_is_idx_primary(int index)
 {

@@ -41,6 +41,7 @@ int dyns_is_idx_dup(int index);
 int dyns_is_idx_recnum(int index);
 int dyns_is_idx_primary(int index);
 int dyns_is_idx_datacopy(int index);
+int dyns_is_idx_partial_datacopy(int index);
 int dyns_is_idx_uniqnulls(int index);
 int dyns_get_idx_count(void);
 int dyns_get_idx_size(int index);

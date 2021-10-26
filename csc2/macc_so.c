@@ -920,6 +920,8 @@ void key_piece_clear() /* used by parser, clears work key */
     macc_globals->workkey = 0;          /* clear work key */
     macc_globals->workkeyflag = 0;      /* clear flag for work key */
     macc_globals->workkeypieceflag = 0; /* clear key piece's flags */
+    macc_globals->head_pd = 0;          /* clear partial datacopy */
+    macc_globals->tail_pd = 0;          /* clear partial datacopy */
 }
 
 void key_piece_setdescend()
@@ -1108,6 +1110,17 @@ static void key_add_comn(int ix, char *tag, char *exprname,
     } else {
         macc_globals->keys[ii]->where = NULL;
     }
+
+    if (macc_globals->workkeyflag & PARTIALDATAKEY) {
+        if (!macc_globals->head_pd) {
+            csc2_error("ERROR: PARTIAL DATACOPY FAILED\n");
+            any_errors++;
+            return;
+        }
+
+        macc_globals->keys[ii]->pd = macc_globals->head_pd;
+    }
+
     macc_globals->nkeys++; /* next key */
 }
 
@@ -1273,6 +1286,23 @@ void key_piece_add(char *buf,
 
 void datakey_piece_add(char *buf) {
     logmsg(LOGMSG_WARN, "%s\n", buf);
+
+    struct partial_datacopy *pd = (struct partial_datacopy *)csc2_malloc(sizeof(struct partial_datacopy));
+
+    if (!pd) {
+        csc2_error("ERROR: OUT OF MEM: %s - ABORTING\n", strerror(errno));
+        any_errors++; // TODO: Check if this is global
+        return;
+    }
+    // TODO: Make sure field is actually a column
+    pd->field = csc2_strdup(buf);
+    if (!macc_globals->head_pd) {
+        macc_globals->head_pd = pd; /* empty list */
+        macc_globals->tail_pd = macc_globals->head_pd;
+    } else {
+        macc_globals->tail_pd->next = pd;
+        macc_globals->tail_pd = macc_globals->tail_pd->next;
+    }
 }
 
 extern int is_valid_datetime(const char *str, const char *tz);

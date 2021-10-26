@@ -1291,9 +1291,10 @@ void datakey_piece_add(char *buf) {
 
     if (!pd) {
         csc2_error("ERROR: OUT OF MEM: %s - ABORTING\n", strerror(errno));
-        any_errors++; // TODO: Check if this is global
+        any_errors++;
         return;
     }
+    strlower(buf, strlen(buf));
     // TODO: Make sure field is actually a column
     pd->field = csc2_strdup(buf);
     if (!macc_globals->head_pd) {
@@ -2654,6 +2655,24 @@ int dyns_is_idx_recnum(int index)
 int dyns_is_idx_uniqnulls(int index)
 {
     return dyns_is_idx_flagged(index, UNIQNULLS);
+}
+
+int dyns_get_idx_partial_datacopy(int index, struct partial_datacopy **partial_datacopy) {
+    int lastix, i;
+    if (index < 0 || index >= numix()) {
+        return -1;
+    }
+    for (lastix = -1, i = 0; i < numkeys(); i++) {
+        if (lastix == macc_globals->keyixnum[i])
+            continue;
+        lastix = macc_globals->keyixnum[i];
+        if (macc_globals->keyixnum[i] != index)
+            continue;
+        *partial_datacopy = macc_globals->keys[i]->pd;
+        return 0;
+    }
+    
+    return -1;
 }
 
 int dyns_get_idx_tag(int index, char *tag, int tlen, char **where)

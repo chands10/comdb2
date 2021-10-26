@@ -174,11 +174,6 @@ struct key {
     struct partial_datacopy *pd;    /* partial datacopy fields (if any) */
 };
 
-struct partial_datacopy {
-    char *field;
-    struct partial_datacopy *next;
-};
-
 enum KEYFLAGS {
     DESCEND = 1 /* this key piece is descending */
 };

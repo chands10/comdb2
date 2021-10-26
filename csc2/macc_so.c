@@ -1154,11 +1154,31 @@ void key_exprtype_add(int type, int arraysz)
     expridx_arraysz = arraysz;
 }
 
+int find_symbol(char *buf, int *tidx) {
+    char *tag = ONDISKTAG;
+    int i = getsymbol(tag, buf, tidx);
+
+    if (i == -1) {
+        tag = (macc_globals->ntables > 1) ? ONDISKTAG : DEFAULTTAG;
+        i = getsymbol(tag, buf, tidx);
+    }
+    if (i == -1) {
+        csc2_error("Error at line %3d: SYMBOL NOT FOUND: %s.\n",
+                current_line, buf);
+        csc2_syntax_error("Error at line %3d: SYMBOL NOT FOUND: %s.",
+                          current_line, buf);
+        csc2_error("IF IN MULTI-TABLE MODE MAKE SURE %s TAG IS DEFINED\n",
+                ONDISKTAG);
+        any_errors++;
+    }
+    return i;
+}
+
 void key_piece_add(char *buf,
                    int is_expr) /* used by parser, adds a piece of a key */
 {
     int el[6], rg[2], i, t, tidx = 0;
-    char *cp, *tag;
+    char *cp;
 
     if (is_expr) {
         CHECK_LEGACY_SCHEMA(1);
@@ -1204,21 +1224,8 @@ void key_piece_add(char *buf,
     if (cp)
         *cp = 0;
 
-    tag = ONDISKTAG;
-    i = getsymbol(tag, buf, &tidx);
-
+    i = find_symbol(buf, &tidx);
     if (i == -1) {
-        tag = (macc_globals->ntables > 1) ? ONDISKTAG : DEFAULTTAG;
-        i = getsymbol(tag, buf, &tidx);
-    }
-    if (i == -1) {
-        csc2_error("Error at line %3d: SYMBOL NOT FOUND: %s.\n",
-                current_line, buf);
-        csc2_syntax_error("Error at line %3d: SYMBOL NOT FOUND: %s.",
-                          current_line, buf);
-        csc2_error("IF IN MULTI-TABLE MODE MAKE SURE %s TAG IS DEFINED\n",
-                ONDISKTAG);
-        any_errors++;
         return;
     } else {
         struct table *tables = macc_globals->tables;

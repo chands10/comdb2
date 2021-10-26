@@ -1294,6 +1294,7 @@ void key_piece_add(char *buf,
 void datakey_piece_add(char *buf) {
     logmsg(LOGMSG_WARN, "%s\n", buf);
 
+    int tidx = 0;
     struct partial_datacopy *pd = (struct partial_datacopy *)csc2_malloc(sizeof(struct partial_datacopy));
 
     if (!pd) {
@@ -1302,7 +1303,10 @@ void datakey_piece_add(char *buf) {
         return;
     }
     strlower(buf, strlen(buf));
-    // TODO: Make sure field is actually a column
+    int i = find_symbol(buf, &tidx);
+    if (i == -1) {
+        return;
+    }
     pd->field = csc2_strdup(buf);
     if (!macc_globals->head_pd) {
         macc_globals->head_pd = pd; /* empty list */

@@ -171,6 +171,12 @@ struct key {
     int exprtype;
     int exprarraysz;
     char *where;
+    struct partial_datacopy *pd;    /* partial datacopy fields (if any) */
+};
+
+struct partial_datacopy {
+    char *field;
+    struct partial_datacopy *next;
 };
 
 enum KEYFLAGS {
@@ -202,6 +208,8 @@ typedef struct macc_globals_t {
     struct key *keys[MAXKEYS];
     struct key *workkey;
     struct key *rngs[MAXRNGS];
+    struct partial_datacopy *head_pd;
+    struct partial_datacopy *tail_pd;
     int keyixnum[MAXKEYS];   /* index # associated with a key */
     int keyexprnum[MAXKEYS]; /* case number associated with a key */
     int workkeyflag;         /* work key's flag */

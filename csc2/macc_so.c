@@ -900,11 +900,34 @@ void key_setprimary(void)
 
 void key_setdatakey(void)
 {
+    if (macc_globals->workkeyflag & PARTIALDATAKEY) {
+        csc2_error("Error at line %3d: CANNOT HAVE DATACOPY AND PARTIAL DATACOPY.\n",
+                current_line);
+        csc2_syntax_error("Error at line %3d: CANNOT HAVE DATACOPY AND PARTIAL DATACOPY.",
+                          current_line);
+        any_errors++;
+        return;
+    }
     macc_globals->workkeyflag |= DATAKEY;
 }
 
 void key_setpartialdatakey(void)
 {
+    if (macc_globals->workkeyflag & DATAKEY) {
+        csc2_error("Error at line %3d: CANNOT HAVE DATACOPY AND PARTIAL DATACOPY.\n",
+                    current_line);
+        csc2_syntax_error("Error at line %3d: CANNOT HAVE DATACOPY AND PARTIAL DATACOPY.",
+                          current_line);
+        any_errors++;
+        return;
+    } else if (macc_globals->workkeyflag & PARTIALDATAKEY) {
+        csc2_error("Error at line %3d: CANNOT HAVE MULTIPLE PARTIAL DATACOPIES.\n",
+                    current_line);
+        csc2_syntax_error("Error at line %3d: CANNOT HAVE MULTIPLE PARTIAL DATACOPIES.",
+                          current_line);
+        any_errors++;
+        return;
+    }
     macc_globals->workkeyflag |= PARTIALDATAKEY;
 }
 

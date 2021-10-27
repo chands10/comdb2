@@ -1153,7 +1153,7 @@ void key_exprtype_add(int type, int arraysz)
     expridx_arraysz = arraysz;
 }
 
-int find_symbol(char *buf, int *tidx) {
+static int find_symbol(char *buf, int *tidx) {
     char *tag = ONDISKTAG;
     int i = getsymbol(tag, buf, tidx);
 

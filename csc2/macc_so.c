@@ -1319,6 +1319,7 @@ void datakey_piece_add(char *buf) {
     }
 
     pd->field = csc2_strdup(buf);
+    pd->next = NULL;
     if (!macc_globals->head_pd) {
         macc_globals->head_pd = pd; /* empty list */
         macc_globals->tail_pd = macc_globals->head_pd;

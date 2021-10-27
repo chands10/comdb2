@@ -905,7 +905,6 @@ void key_setdatakey(void)
 
 void key_setpartialdatakey(void)
 {
-    logmsg(LOGMSG_WARN, "USING PARTIAL DATAKEY\n");
     macc_globals->workkeyflag |= PARTIALDATAKEY;
 }
 
@@ -1225,7 +1224,7 @@ void key_piece_add(char *buf,
         *cp = 0;
 
     i = find_symbol(buf, &tidx);
-    if (i == -1) {
+    if (i == -1) { // will error
         return;
     } else {
         struct table *tables = macc_globals->tables;
@@ -1292,21 +1291,33 @@ void key_piece_add(char *buf,
 }
 
 void datakey_piece_add(char *buf) {
-    logmsg(LOGMSG_WARN, "%s\n", buf);
-
     int tidx = 0;
-    struct partial_datacopy *pd = (struct partial_datacopy *)csc2_malloc(sizeof(struct partial_datacopy));
+    struct partial_datacopy *temp;
+    
+    strlower(buf, strlen(buf));
+    int i = find_symbol(buf, &tidx);
+    if (i == -1) { // will error
+        return; 
+    }
 
+    // check if field already present
+    if (macc_globals->head_pd) {
+        temp = macc_globals->head_pd;
+        while (temp) {
+            if (strcmp(buf, temp->field) == 0) {
+                return; // just ignore duplicates
+            }
+            temp = temp->next;
+        }
+    }
+
+    struct partial_datacopy *pd = (struct partial_datacopy *)csc2_malloc(sizeof(struct partial_datacopy));
     if (!pd) {
         csc2_error("ERROR: OUT OF MEM: %s - ABORTING\n", strerror(errno));
         any_errors++;
         return;
     }
-    strlower(buf, strlen(buf));
-    int i = find_symbol(buf, &tidx);
-    if (i == -1) {
-        return;
-    }
+
     pd->field = csc2_strdup(buf);
     if (!macc_globals->head_pd) {
         macc_globals->head_pd = pd; /* empty list */

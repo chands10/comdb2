@@ -1141,6 +1141,8 @@ static void key_add_comn(int ix, char *tag, char *exprname,
         }
 
         macc_globals->keys[ii]->pd = macc_globals->head_pd;
+    } else {
+        macc_globals->keys[ii]->pd = NULL;
     }
 
     macc_globals->nkeys++; /* next key */

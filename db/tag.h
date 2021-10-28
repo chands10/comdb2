@@ -65,6 +65,7 @@ struct schema {
     int flags;
     int nix;
     struct schema **ix;
+    struct schema *partial_datacopy;
     int ixnum;   /* for indices, number of index in struct dbtable */
     int ix_blob; /* set to 1 if blobs are involved in indexes */
     int recsize; /* for tables, gives the length of the record structure */
@@ -102,7 +103,8 @@ enum {
     ,
     SCHEMA_DYNAMIC = 16,
     SCHEMA_DATACOPY = 32, /* datacopy flag set on index */
-    SCHEMA_UNIQNULLS = 64 /* treat all NULL values as UNIQUE */
+    SCHEMA_UNIQNULLS = 64, /* treat all NULL values as UNIQUE */
+    SCHEMA_PARTIALDATACOPY = 128 /* partial datacopy flag set on index */
 };
 
 /* sql_record_member.flags */

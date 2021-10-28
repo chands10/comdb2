@@ -1454,6 +1454,9 @@ void form_new_style_name(char *namebuf, int len, struct schema *schema,
     if (schema->flags & SCHEMA_DATACOPY)
         SNPRINTF(buf, sizeof(buf), current, "%s", "DATACOPY")
 
+    if (schema->flags & SCHEMA_PARTIALDATACOPY)
+        SNPRINTF(buf, sizeof(buf), current, "%s", "PARTIALDATACOPY")
+
     if (schema->flags & SCHEMA_DUP)
         SNPRINTF(buf, sizeof(buf), current, "%s", "DUP")
 
@@ -1695,6 +1698,16 @@ int create_datacopy_arrays()
     return 0;
 }
 
+static int find_ondisk_index(char *name, struct schema *ondisk) {
+    for (int ondisk_i = 0; ondisk_i < ondisk->nmembers; ++ondisk_i) {
+        struct field *ondisk_field = &ondisk->member[ondisk_i];
+        if (strcmp(ondisk_field->name, name) == 0) {
+            return ondisk_i;
+        }
+    }
+    return -1;
+}
+
 int create_datacopy_array(struct dbtable *tbl)
 {
     struct schema *schema = tbl->schema;
@@ -1717,8 +1730,10 @@ int create_datacopy_array(struct dbtable *tbl)
             return -1;
         }
 
-        if (!(schema->flags & SCHEMA_DATACOPY)) {
+        if (!(schema->flags & (SCHEMA_DATACOPY | SCHEMA_PARTIALDATACOPY))) {
             continue;
+        } else if (schema->flags & SCHEMA_PARTIALDATACOPY) {
+            ondisk = schema->partial_datacopy;
         }
 
         int datacopy_pos = 0;
@@ -1745,7 +1760,16 @@ int create_datacopy_array(struct dbtable *tbl)
                     return -1;
                 }
             }
-            schema->datacopy[datacopy_pos] = ondisk_i;
+
+            if (schema->flags & SCHEMA_DATACOPY) {
+                schema->datacopy[datacopy_pos] = ondisk_i;
+            } else { // partial datacopy
+                schema->datacopy[datacopy_pos] = find_ondisk_index(ondisk_field->name, tbl->schema);
+                if (schema->datacopy[datacopy_pos] == -1) {
+                    logmsg(LOGMSG_ERROR, "Could not find field %s in ondisk array \n", ondisk_field->name);
+                    return -1;
+                }
+            }
             ++datacopy_pos;
         }
     }
@@ -1887,8 +1911,11 @@ static int create_sqlmaster_record(struct dbtable *tbl, void *tran)
                 strbuf_append(sql, " DESC");
         }
 
-        if (schema->flags & SCHEMA_DATACOPY) {
+        if (schema->flags & (SCHEMA_DATACOPY | SCHEMA_PARTIALDATACOPY)) {
             struct schema *ondisk = tbl->schema;
+            if (schema->flags & SCHEMA_PARTIALDATACOPY) {
+                ondisk = schema->partial_datacopy;
+            }
             int first = 1;
             /* Add all fields from ONDISK to index */
             for (int ondisk_i = 0; ondisk_i < ondisk->nmembers; ++ondisk_i) {

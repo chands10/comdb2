@@ -1553,6 +1553,8 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt,
     int ascdesc;
     char *dbname = db->tablename;
     struct schema *s;
+    struct schema *p;
+    struct partial_datacopy *pd;
 
     /* keys not reqd for ver temp table; just ondisk tag */
     if (strncasecmp(dbname, gbl_ver_temp_table,
@@ -1583,6 +1585,43 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt,
 
         if (dyns_is_idx_uniqnulls(ix))
             s->flags |= SCHEMA_UNIQNULLS;
+
+        if (dyns_is_idx_partial_datacopy(ix)) {
+            s->flags |= SCHEMA_PARTIALDATACOPY;
+            rc = dyns_get_idx_partial_datacopy(ix, &pd);
+            if (rc == 0 && pd) {
+                p = s->partial_datacopy = calloc(1, sizeof(struct schema));
+
+                // find number of members
+                int numMembers = 0;
+                struct partial_datacopy *temp = pd;
+                while (temp) {
+                    temp = temp->next;
+                    numMembers++;
+                }
+
+                p->nmembers = numMembers;
+                p->member = calloc(p->nmembers, sizeof(struct field));
+
+                temp = pd;
+                piece = 0;
+                while (temp) {
+                    m = &p->member[piece];
+                    m->flags = 0;
+                    m->isExpr = 0;
+                    m->name = strdup(temp->field);
+
+                    temp = temp->next;
+                    piece++;
+                }
+
+
+            } else {
+                goto errout;
+            }
+        } else {
+            s->partial_datacopy = NULL;
+        }
 
         s->nix = 0;
         s->ix = NULL;

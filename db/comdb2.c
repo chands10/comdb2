@@ -1964,7 +1964,7 @@ dbtable *newdb_from_schema(struct dbenv *env, char *tblname, char *fname,
             return NULL;
         }
 
-        tbl->ix_datacopy[ii] = dyns_is_idx_datacopy(ii);
+        tbl->ix_datacopy[ii] = dyns_is_idx_datacopy(ii) | dyns_is_idx_partial_datacopy(ii);
         if (tbl->ix_datacopy[ii] < 0) {
             logmsg(LOGMSG_ERROR, "cant find index %d datacopy in csc schema %s\n",
                     ii, tblname);

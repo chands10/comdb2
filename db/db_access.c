@@ -255,6 +255,19 @@ int access_control_check_sql_write(struct BtCursor *pCur,
     return 0;
 }
 
+// need to update authgen when revoke/grant access. Maybe also when user changes?
+// use string pointer instead of string (maybe don't need to)
+// find where to initialize hash table
+struct table_permissions {
+    char table[MAXTABLELEN];
+    int permissions;
+};
+// TODO: convert ACCESS_READ, etc?
+enum {
+    TABLE_READ = 1,
+    TABLE_WRITE = 2,
+    TABLE_DDL = 4
+};
 int access_control_check_sql_read(struct BtCursor *pCur, struct sql_thread *thd)
 {
     int rc = 0;
@@ -264,6 +277,49 @@ int access_control_check_sql_read(struct BtCursor *pCur, struct sql_thread *thd)
 
     if (pCur->cursor_class == CURSORCLASS_TEMPTABLE)
         return 0;
+
+    const char *table_name = NULL;
+    char table[MAXTABLELEN];
+
+    if (pCur->db)
+        table_name = pCur->db->timepartition_name ? pCur->db->timepartition_name
+                                                  : pCur->db->tablename;
+
+    if (!clnt->table_permissions_cache) {
+        clnt->table_permissions_cache = hash_init_str(offsetof(struct table_permissions, table));
+    }
+
+    logmsg(LOGMSG_WARN, "User name: %s\n", clnt->current_user.name);
+    logmsg(LOGMSG_WARN, "Table name: %s\n", table_name ? table_name : "null");
+    logmsg(LOGMSG_WARN, "Client authgen: %d, Global: %d\n", clnt->authgen, gbl_bpfunc_auth_gen);
+    // reset cache
+    if (clnt->authgen != gbl_bpfunc_auth_gen) {
+        logmsg(LOGMSG_WARN, "RESET\n");
+        hash_clear(clnt->table_permissions_cache);
+        // QUESTION: how to deal with memory?
+        clnt->authgen = gbl_bpfunc_auth_gen;
+
+    } else if (table_name) { // check cache for table permissions
+        strcpy(table, table_name); //QUESTION:  is this needed or can we just use table for hash? Do we need to use strncpy?
+        struct table_permissions* f = (struct table_permissions*)hash_find_readonly(clnt->table_permissions_cache, table); // QUESTION: Should I use hash_find? Need locks?
+        if (f) {
+            if (f->permissions & TABLE_READ) {
+            logmsg(LOGMSG_WARN, "Already authenticated\n");
+            return 0;
+            }
+
+            logmsg(LOGMSG_WARN, "Already NOT authenticated\n");
+            char msg[1024];
+            snprintf(msg, sizeof(msg), "Read access denied for table %s",
+                        table_name);
+            logmsg(LOGMSG_INFO, "%s\n", msg);
+            errstat_set_rc(&thd->clnt->osql.xerr, SQLITE_ACCESS);
+            errstat_set_str(&thd->clnt->osql.xerr, msg);
+            return SQLITE_ABORT;
+        }
+    }
+
+    logmsg(LOGMSG_WARN, "NEW Authenticating\n");
 
     if (gbl_uses_accesscontrol_tableXnode) {
         rc = bdb_access_tbl_read_by_mach_get(
@@ -281,12 +337,6 @@ int access_control_check_sql_read(struct BtCursor *pCur, struct sql_thread *thd)
             return SQLITE_ABORT;
         }
     }
-
-    const char *table_name = NULL;
-
-    if (pCur->db)
-        table_name = pCur->db->timepartition_name ? pCur->db->timepartition_name
-                                                  : pCur->db->tablename;
 
     /* Check read access if its not user schema. */
     /* Check it only if engine is open already. */
@@ -318,6 +368,26 @@ int access_control_check_sql_read(struct BtCursor *pCur, struct sql_thread *thd)
                 errstat_set_str(&thd->clnt->osql.xerr, msg);
 
                 return SQLITE_ABORT;
+            }
+            if (table_name) {
+                struct table_permissions *to_add = calloc(1, sizeof(struct table_permissions));
+                to_add->permissions = TABLE_READ;
+                if (bdb_check_user_tbl_access(
+                pCur->db->dbenv->bdb_env, thd->clnt->current_user.name,
+                pCur->db->tablename, ACCESS_WRITE, &bdberr) == 0) {
+                    to_add->permissions |= TABLE_WRITE;
+                }
+                if (bdb_check_user_tbl_access(
+                pCur->db->dbenv->bdb_env, thd->clnt->current_user.name,
+                pCur->db->tablename, ACCESS_DDL, &bdberr) == 0) {
+                    to_add->permissions |= TABLE_DDL;
+                }
+
+                strcpy(to_add->table, table_name);
+                if (hash_add(clnt->table_permissions_cache, to_add)) {
+                    logmsg(LOGMSG_ERROR, "Unable to add table %s to hash table\n", table_name);
+                    return SQLITE_ABORT;
+                }
             }
         }
     }

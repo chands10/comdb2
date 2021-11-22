@@ -871,6 +871,8 @@ struct sqlclntstate {
     replay_func *recover_ddlk_fail;
     unsigned skip_eventlog: 1;
     unsigned request_fp: 1;
+
+    hash_t *table_permissions_cache;
 };
 
 /* Query stats. */

@@ -1554,8 +1554,11 @@ int process_set_commands(struct sqlclntstate *clnt, CDB2SQLQUERY *sql_query)
                         clnt->current_user.have_name = 1;
                         /* Re-authenticate the new user. */
                         if (clnt->authgen &&
-                            strcmp(clnt->current_user.name, sqlstr) != 0)
+                            strcmp(clnt->current_user.name, sqlstr) != 0) {
                             clnt->authgen = 0;
+                            logmsg(LOGMSG_WARN, "RESET\n");
+                            hash_clear(clnt->table_permissions_cache);
+                            }
                         clnt->current_user.is_x509_user = 0;
                         strcpy(clnt->current_user.name, sqlstr);
                     }
@@ -1580,8 +1583,11 @@ int process_set_commands(struct sqlclntstate *clnt, CDB2SQLQUERY *sql_query)
                         clnt->current_user.have_password = 1;
                         /* Re-authenticate the new password. */
                         if (clnt->authgen &&
-                            strcmp(clnt->current_user.password, sqlstr) != 0)
+                            strcmp(clnt->current_user.password, sqlstr) != 0) {
                             clnt->authgen = 0;
+                            logmsg(LOGMSG_WARN, "RESET\n");
+                            hash_clear(clnt->table_permissions_cache);
+                            }
                         strcpy(clnt->current_user.password, sqlstr);
                     }
                 }

@@ -912,7 +912,7 @@ int create_schema_change_plan(struct schema_change_type *s, struct dbtable *oldd
 
         /* If the new index has datacopy and there are ondisk changes then
          * the index must be rebuilt. */
-        if ((newixs->flags & SCHEMA_DATACOPY) && plan->dta_plan == -1) {
+        if ((newixs->flags & (SCHEMA_DATACOPY | SCHEMA_PARTIALDATACOPY)) && plan->dta_plan == -1) {
             plan->ix_plan[ixn] = -1;
         } else {
             /* Try to find an unused index in the old file which exactly matches
@@ -930,7 +930,7 @@ int create_schema_change_plan(struct schema_change_type *s, struct dbtable *oldd
         }
 
         if (newdb->odh &&                        /* table has odh */
-            (newixs->flags & SCHEMA_DATACOPY) && /* index had datacopy */
+            (newixs->flags & (SCHEMA_DATACOPY | SCHEMA_PARTIALDATACOPY)) && /* index had datacopy */
             !datacopy_odh) /* index did not have odh in datacopy */
         {
             plan->ix_plan[ixn] = -1;
@@ -943,7 +943,7 @@ int create_schema_change_plan(struct schema_change_type *s, struct dbtable *oldd
         if (plan->ix_plan[ixn] == -1) plan->plan_convert = 1;
 
         char *str_datacopy;
-        if (newixs->flags & SCHEMA_DATACOPY) {
+        if (newixs->flags & (SCHEMA_DATACOPY | SCHEMA_PARTIALDATACOPY)) {
             if (olddb->odh) {
                 if (newdb->odh) {
                     if (datacopy_odh) {

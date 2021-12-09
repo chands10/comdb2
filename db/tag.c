@@ -4572,8 +4572,8 @@ int cmp_index_int(struct schema *oldix, struct schema *newix, char *descr,
     int oldattr, newattr;
 
     /* First compare attributes */
-    oldattr = oldix->flags & (SCHEMA_DUP | SCHEMA_RECNUM | SCHEMA_DATACOPY | SCHEMA_UNIQNULLS);
-    newattr = newix->flags & (SCHEMA_DUP | SCHEMA_RECNUM | SCHEMA_DATACOPY | SCHEMA_UNIQNULLS);
+    oldattr = oldix->flags & (SCHEMA_DUP | SCHEMA_RECNUM | SCHEMA_DATACOPY | SCHEMA_UNIQNULLS | SCHEMA_PARTIALDATACOPY);
+    newattr = newix->flags & (SCHEMA_DUP | SCHEMA_RECNUM | SCHEMA_DATACOPY | SCHEMA_UNIQNULLS | SCHEMA_PARTIALDATACOPY);
     if (oldattr != newattr) {
         if (descr)
             snprintf(descr, descrlen, "properties have changed");
@@ -4609,6 +4609,26 @@ int cmp_index_int(struct schema *oldix, struct schema *newix, char *descr,
                     snprintf(descr, descrlen, "field %d (%s) changed", fidx + 1,
                              oldfld->name);
                 return 1;
+            }
+        }
+
+        struct schema *oldpd = oldix->partial_datacopy;
+        struct schema *newpd = newix->partial_datacopy;
+        if (oldpd && newpd) {
+            if (oldpd->nmembers != newpd->nmembers) {
+                if (descr)
+                    snprintf(descr, descrlen, "number of fields in partial datacopy has changed");
+                return 1;
+            }
+
+            for (fidx = 0; fidx < newpd->nmembers; fidx++) {
+                // only need to check name field
+                if (strcmp(oldpd->member[fidx].name, newpd->member[fidx].name) != 0) {
+                    if (descr)
+                        snprintf(descr, descrlen, "field %d (%s) of partial datacopy changed",
+                                fidx + 1, oldpd->member[fidx].name);
+                    return 1;
+                }
             }
         }
     }

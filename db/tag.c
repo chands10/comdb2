@@ -1600,6 +1600,12 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt,
                     numMembers++;
                 }
 
+                p->tag = NULL;
+                p->datacopy = NULL;
+                p->csctag = NULL;
+                p->sqlitetag = NULL;
+                p->partial_datacopy = NULL;
+
                 p->nmembers = numMembers;
                 p->member = calloc(p->nmembers, sizeof(struct field));
 
@@ -1609,6 +1615,8 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt,
                     m = &p->member[piece];
                     m->flags = 0;
                     m->isExpr = 0;
+                    m->in_default = NULL;
+                    m->out_default = NULL;
                     m->name = strdup(temp->field);
 
                     temp = temp->next;
@@ -4619,7 +4627,7 @@ int cmp_index_int(struct schema *oldix, struct schema *newix, char *descr,
 
         struct schema *oldpd = oldix->partial_datacopy;
         struct schema *newpd = newix->partial_datacopy;
-        if (oldpd && newpd) {
+        if (oldpd && newpd) { // may not be guaranteed to be NULL for all schema if uninitialized?
             if (oldpd->nmembers != newpd->nmembers) {
                 if (descr)
                     snprintf(descr, descrlen, "number of fields in partial datacopy has changed");
@@ -6737,6 +6745,10 @@ void freeschema_internals(struct schema *schema)
     if (schema->sqlitetag) {
         free(schema->sqlitetag);
         schema->sqlitetag = NULL;
+    }
+    if (schema->partial_datacopy) { // may not be guaranteed to be NULL for all schema if uninitialized?
+        freeschema(schema->partial_datacopy);
+        schema->partial_datacopy = NULL;
     }
 }
 

@@ -6043,6 +6043,14 @@ struct schema *clone_schema(struct schema *from)
         sc->datacopy = malloc(from->nmembers * sizeof(int));
         memcpy(sc->datacopy, from->datacopy, from->nmembers * sizeof(int));
     }
+    if (from->partial_datacopy) {
+        sc->partial_datacopy = calloc(1, sizeof(struct schema));
+        sc->partial_datacopy->nmembers = from->partial_datacopy->nmembers;
+        sc->partial_datacopy->member = calloc(sc->partial_datacopy->nmembers, sizeof(struct field));
+        for (i = 0; i < sc->partial_datacopy->nmembers; i++) {
+            sc->partial_datacopy->member[i].name = strdup(from->partial_datacopy->member[i].name);
+        }
+    }
     return sc;
 }
 

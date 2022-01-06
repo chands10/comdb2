@@ -1451,11 +1451,23 @@ void form_new_style_name(char *namebuf, int len, struct schema *schema,
     unsigned int crc;
 
     SNPRINTF(buf, sizeof(buf), current, "%s", dbname)
-    if (schema->flags & SCHEMA_DATACOPY)
+    if (schema->flags & (SCHEMA_DATACOPY | SCHEMA_PARTIALDATACOPY)) {
         SNPRINTF(buf, sizeof(buf), current, "%s", "DATACOPY")
 
-    if (schema->flags & SCHEMA_PARTIALDATACOPY)
-        SNPRINTF(buf, sizeof(buf), current, "%s", "PARTIALDATACOPY")
+        if (schema->flags & SCHEMA_PARTIALDATACOPY) {
+            struct schema *partial_datacopy = schema->partial_datacopy;
+
+            SNPRINTF(buf, sizeof(buf), current, "%s", "(")
+            for (fieldctr = 0; fieldctr < partial_datacopy->nmembers; fieldctr++) {
+                if (fieldctr > 0) {
+                    SNPRINTF(buf, sizeof(buf), current, "%s", ", ")
+                }
+
+                SNPRINTF(buf, sizeof(buf), current, "%s", partial_datacopy->member[fieldctr].name)
+            }
+            SNPRINTF(buf, sizeof(buf), current, "%s", ")")
+        }
+    }
 
     if (schema->flags & SCHEMA_DUP)
         SNPRINTF(buf, sizeof(buf), current, "%s", "DUP")

@@ -3424,13 +3424,28 @@ static int gen_key_name(struct comdb2_key *key, const char *table, char *out,
     /* Table name */
     SNPRINTF(buf, sizeof(buf), pos, "%s", table)
 
-    /* DATACOPY */
-    if (key->flags & KEY_DATACOPY)
+    /* DATACOPY/PARTIALDATACOPY */
+    if (key->flags & (KEY_DATACOPY | KEY_PARTIALDATACOPY)) {
         SNPRINTF(buf, sizeof(buf), pos, "%s", "DATACOPY")
 
-    /* PARTIALDATACOPY */
-    if (key->flags & KEY_PARTIALDATACOPY)
-        SNPRINTF(buf, sizeof(buf), pos, "%s", "PARTIALDATACOPY");
+        if (key->flags & KEY_PARTIALDATACOPY) {
+            int added = 0;
+            struct comdb2_partial_datacopy_field *partial_datacopy_field;
+
+            SNPRINTF(buf, sizeof(buf), pos, "%s", "(")
+            LISTC_FOR_EACH(&key->partial_datacopy_list, partial_datacopy_field, lnk)
+            {
+                if (added > 0) {
+                    SNPRINTF(buf, sizeof(buf), pos, "%s", ", ")
+                }
+
+                SNPRINTF(buf, sizeof(buf), pos, "%s", partial_datacopy_field->name)
+
+                added++;
+            }
+            SNPRINTF(buf, sizeof(buf), pos, "%s", ")")
+        }
+    }
 
     /* DUP */
     if (key->flags & KEY_DUP)

@@ -201,6 +201,7 @@ Describes all of the keys in the database.
 * `keyname` - Name of the key
 * `isunique` - `Y` if this key is unique
 * `isdatacopy` - `Y` if the data is inlined with this key
+* `ispartialdatacopy` - `Y` if some subset of the data is inlined with this key
 * `isrecnum` - `Y` if this key has recnums
 * `condition` - Where condition for this index
 * `uniqnulls` - `Y` if this key treats NULL values as unique

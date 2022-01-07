@@ -3762,6 +3762,7 @@ static char *prepare_csc2(Parse *pParse, struct comdb2_ddl_context *ctx)
       * Unique
       * Columns must not allow NULLs
       * Must be only one per table
+      Check that datacopy and partial datacopy are both not set
     */
     int pk_count = 0;
     LISTC_FOR_EACH(&ctx->schema->key_list, key, lnk)
@@ -3796,6 +3797,12 @@ static char *prepare_csc2(Parse *pParse, struct comdb2_ddl_context *ctx)
                     goto cleanup;
                 }
             }
+        }
+
+        if (key->flags & KEY_DATACOPY & KEY_PARTIALDATACOPY) {
+            pParse->rc = SQLITE_ERROR;
+            sqlite3ErrorMsg(pParse, "Cannot have datacopy and partial datacopy.");
+            goto cleanup;
         }
     }
 

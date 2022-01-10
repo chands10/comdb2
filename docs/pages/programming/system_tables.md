@@ -195,7 +195,7 @@ Describes all the components of the keys.
 Describes all of the keys in the database.
 
     comdb2_keys(tablename, keyname, keynumber, isunique, isdatacopy,
-    isrecnum, condition)
+    ispartialdatacopy, isrecnum, condition)
 
 * `tablename` - Name of the table
 * `keyname` - Name of the key

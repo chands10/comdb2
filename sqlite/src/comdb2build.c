@@ -3822,19 +3822,9 @@ static char *prepare_csc2(Parse *pParse, struct comdb2_ddl_context *ctx)
 
             /* Make sure all partial datacopy fields are valid */
             struct comdb2_partial_datacopy_field *partial_datacopy_field;
-            int found;
             LISTC_FOR_EACH(&key->partial_datacopy_list, partial_datacopy_field, lnk)
             {
-                found = 0;
-                LISTC_FOR_EACH(&ctx->schema->column_list, column, lnk)
-                {
-                    if (strcmp(partial_datacopy_field->name, column->name) == 0) {
-                        found = 1;
-                        break;
-                    }
-                }
-
-                if (!found) {
+                if (find_column_by_name(ctx, partial_datacopy_field->name) == 0) {
                     pParse->rc = SQLITE_ERROR;
                     sqlite3ErrorMsg(pParse, "Invalid partial datacopy field \"%s\".", partial_datacopy_field->name);
                     goto cleanup;

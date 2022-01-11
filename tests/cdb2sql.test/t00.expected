@@ -41,6 +41,7 @@ unknown @ls sub-command foo
 (name='comdb2_metrics')
 (name='comdb2_net_userfuncs')
 (name='comdb2_opcode_handlers')
+(name='comdb2_partial_datacopies')
 (name='comdb2_plugins')
 (name='comdb2_procedures')
 (name='comdb2_queues')

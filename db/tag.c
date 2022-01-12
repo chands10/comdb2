@@ -4625,9 +4625,9 @@ int cmp_index_int(struct schema *oldix, struct schema *newix, char *descr,
             }
         }
 
-        struct schema *oldpd = oldix->partial_datacopy;
-        struct schema *newpd = newix->partial_datacopy;
-        if (oldpd && newpd) { // may not be guaranteed to be NULL for all schema if uninitialized?
+        if (oldix->flags & newix->flags & SCHEMA_PARTIALDATACOPY) {
+            struct schema *oldpd = oldix->partial_datacopy;
+            struct schema *newpd = newix->partial_datacopy;
             if (oldpd->nmembers != newpd->nmembers) {
                 if (descr)
                     snprintf(descr, descrlen, "number of fields in partial datacopy has changed");

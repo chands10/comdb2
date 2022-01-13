@@ -1,0 +1,7 @@
+(tablename='t', keyname='A', keynumber=0, isunique='Y', isdatacopy='N', ispartialdatacopy='Y', isrecnum='N', condition=NULL, uniqnulls='N')
+(tablename='t', keyname='A', columnname='a')
+(tablename='t2', keyname='ABCD', keynumber=0, isunique='Y', isdatacopy='N', ispartialdatacopy='Y', isrecnum='N', condition=NULL, uniqnulls='N')
+(tablename='t2', keyname='ABCD', columnname='a')
+(tablename='t2', keyname='ABCD', columnname='b')
+(tablename='t2', keyname='ABCD', columnname='c')
+(tablename='t2', keyname='ABCD', columnname='d')

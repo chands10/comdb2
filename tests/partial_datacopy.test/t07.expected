@@ -1,0 +1,3 @@
+(tablename='t', keyname='A', keynumber=0, isunique='Y', isdatacopy='N', ispartialdatacopy='Y', isrecnum='N', condition=NULL, uniqnulls='N')
+(tablename='t', keyname='A', columnname='c')
+(tablename='t', keyname='A', columnname='b')

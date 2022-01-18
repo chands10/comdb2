@@ -6744,7 +6744,7 @@ void freeschema_internals(struct schema *schema)
         free(schema->sqlitetag);
         schema->sqlitetag = NULL;
     }
-    if (schema->partial_datacopy) { // may not be guaranteed to be NULL for all schema if uninitialized?
+    if (schema->partial_datacopy) {
         freeschema(schema->partial_datacopy);
         schema->partial_datacopy = NULL;
     }

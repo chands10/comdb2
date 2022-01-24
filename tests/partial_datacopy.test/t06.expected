@@ -1,4 +1,4 @@
-(tablename='t', keyname='AC', keynumber=0, isunique='Y', isdatacopy='N', ispartialdatacopy='Y', isrecnum='N', condition=NULL, uniqnulls='N')
+(tablename='t', keyname='AC', keynumber=0, isunique='Y', isdatacopy='N', isrecnum='N', condition=NULL, uniqnulls='N', ispartialdatacopy='Y')
 (tablename='t', keyname='AC', columnname='a')
 (tablename='t', keyname='AC', columnname='b')
 (tablename='t', keyname='AC', columnname='c')

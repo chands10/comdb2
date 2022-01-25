@@ -1281,7 +1281,7 @@ int check_sc_headroom(struct schema_change_type *s, struct dbtable *olddb,
                     /* If an index has a blob field or is datacopy, the size
                        will rise based on the blob size or data size. So still
                        use the old way here. */
-                    if (!ix->ix_blob && !(ix->flags & SCHEMA_DATACOPY))
+                    if (!ix->ix_blob && !(ix->flags & (SCHEMA_DATACOPY | SCHEMA_PARTIALDATACOPY)))
                         pct += get_size_of_schema(ix) / (double)lrl;
                 }
             }

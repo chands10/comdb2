@@ -1610,13 +1610,20 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt)
 
                 temp = pd;
                 piece = 0;
+                int offset = 0;
+                int idx;
                 while (temp) {
+                    idx = find_field_idx_in_tag(schema, temp->field);
                     m = &p->member[piece];
                     m->flags = 0;
                     m->isExpr = 0;
                     m->in_default = NULL;
                     m->out_default = NULL;
                     m->name = strdup(temp->field);
+                    m->offset = offset;
+                    m->type = schema->member[idx].type;
+                    m->len = schema->member[idx].len;
+                    offset += m->len;
 
                     temp = temp->next;
                     piece++;
@@ -7452,8 +7459,18 @@ int create_key_from_schema(const struct dbtable *db, struct schema *schema, int 
                        fromtag, totag);
                 abort();
             }
-            *tail = (char *)inbuf;
-            *taillen = inbuflen;
+            if (tosch->flags & SCHEMA_PARTIALDATACOPY) {
+                rc = _stag_to_stag_buf_flags_blobs(fromsch, tosch->partial_datacopy, inbuf, mangled_key, 0 /*flags*/, NULL, inblobs, NULL /*outblobs*/,
+                                       maxblobs, tzname);
+                if (rc)
+                    return rc;
+
+                *tail = (char *)mangled_key;
+                *taillen = get_size_of_schema(tosch->partial_datacopy);
+            } else {
+                *tail = (char *)inbuf;
+                *taillen = inbuflen;
+            }
         }
     } else if (db->ix_collattr[ixnum]) {
         assert(db->ix_datacopy[ixnum] == 0);

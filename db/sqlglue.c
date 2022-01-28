@@ -7158,6 +7158,7 @@ done:
 int get_datacopy(BtCursor *pCur, int fnum, Mem *m)
 {
     uint8_t *in;
+    struct schema *s;
 
     in = pCur->bdbcur->datacopy(pCur->bdbcur);
     if (!is_genid_synthetic(pCur->genid)) {
@@ -7165,7 +7166,11 @@ int get_datacopy(BtCursor *pCur, int fnum, Mem *m)
         vtag_to_ondisk_vermap(pCur->db, in, NULL, ver);
     }
 
-    return get_data(pCur, pCur->db->schema, in, fnum, m, 0, pCur->clnt->tzname);
+    s = pCur->db->schema;
+    if (s->ix[pCur->ixnum]->flags & SCHEMA_PARTIALDATACOPY) {
+        s = s->ix[pCur->ixnum]->partial_datacopy;
+    }
+    return get_data(pCur, s, in, fnum, m, 0, pCur->clnt->tzname);
 }
 
 static int

@@ -1542,7 +1542,6 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt)
     char buf[MAXCOLNAME + 1];
     int ix;
     int piece;
-    int field_idx;
     struct field *m;
     int offset;
     char altname[MAXTAGLEN];
@@ -1613,23 +1612,24 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt)
                 piece = 0;
                 offset = 0;
                 while (temp) {
-                    field_idx = find_field_idx_in_tag(schema, temp->field);
-                    if (field_idx == -1) {
+                    m = &p->member[piece];
+                    m->idx = find_field_idx(dbname, schema->tag, temp->field);
+                    if (m->idx == -1) {
                         rc = -ix - 1;
                         goto errout;
                     }
 
-                    m = &p->member[piece];
                     m->isExpr = 0;
                     m->in_default = NULL;
                     m->out_default = NULL;
                     m->name = strdup(temp->field);
                     m->offset = offset;
-                    m->flags = schema->member[field_idx].flags;
-                    m->type = schema->member[field_idx].type;
-                    m->len = schema->member[field_idx].len;
+                    m->flags = schema->member[m->idx].flags;
+                    m->blob_index = schema->member[m->idx].blob_index;
+                    m->type = schema->member[m->idx].type;
+                    m->len = schema->member[m->idx].len;
                     offset += m->len;
-                    memcpy(&m->convopts, &schema->member[field_idx].convopts, sizeof(struct field_conv_opts));
+                    memcpy(&m->convopts, &schema->member[m->idx].convopts, sizeof(struct field_conv_opts));
 
                     temp = temp->next;
                     piece++;

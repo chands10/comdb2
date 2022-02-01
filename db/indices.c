@@ -172,6 +172,7 @@ static int check_index(struct ireq *iq, void *trans, int ixnum, blob_buffer_t *b
     int rc;
     char key[MAXKEYLEN];
     char mangled_key[MAXKEYLEN];
+    char partial_datacopy_tail[COMDB2_MAX_RECORD_SIZE];
     char *od_dta_tail = NULL;
     int od_tail_len;
     int fndrrn = 0;
@@ -194,8 +195,8 @@ static int check_index(struct ireq *iq, void *trans, int ixnum, blob_buffer_t *b
         rc = create_key_from_ireq(iq, ixnum, 0, &od_dta_tail, &od_tail_len,
                                   mangled_key, od_dta, od_len, key);
     else {
-        rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_dta_tail, &od_tail_len, mangled_key, od_dta, od_len,
-                                    key, blobs, maxblobs, iq->tzname);
+        rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_dta_tail, &od_tail_len, mangled_key, partial_datacopy_tail,
+                                    od_dta, od_len, key, blobs, maxblobs, iq->tzname);
     }
     if (rc == -1) {
         if (iq->debug)
@@ -326,6 +327,7 @@ int add_record_indices(struct ireq *iq, void *trans, blob_buffer_t *blobs,
     for (int ixnum = 0; ixnum < iq->usedb->nix; ixnum++) {
         char *key = ditk.ixkey; // key points to chararray regardless reordering
         char mangled_key[MAXKEYLEN];
+        char partial_datacopy_tail[COMDB2_MAX_RECORD_SIZE];
 
         if (gbl_use_plan && iq->usedb->plan &&
             iq->usedb->plan->ix_plan[ixnum] != -1)
@@ -353,8 +355,8 @@ int add_record_indices(struct ireq *iq, void *trans, blob_buffer_t *blobs,
             rc = create_key_from_ireq(iq, ixnum, 0, &od_dta_tail, &od_tail_len,
                                       mangled_key, od_dta, od_len, key);
         else {
-            rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_dta_tail, &od_tail_len, mangled_key, od_dta, od_len,
-                                        key, blobs, maxblobs, iq->tzname);
+            rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_dta_tail, &od_tail_len, mangled_key, partial_datacopy_tail, 
+                                        od_dta, od_len, key, blobs, maxblobs, iq->tzname);
         }
         if (rc == -1) {
             if (iq->debug)
@@ -549,6 +551,9 @@ int upd_record_indices(struct ireq *iq, void *trans, int *opfailcode,
         char *newkey = ditk.ixkey;
         char mangled_oldkey[MAXKEYLEN];
         char mangled_newkey[MAXKEYLEN];
+        char partial_datacopy_oldtail[COMDB2_MAX_RECORD_SIZE];
+        char partial_datacopy_newtail[COMDB2_MAX_RECORD_SIZE];
+
 
         /* index doesnt change */
         if (gbl_partial_indexes && iq->usedb->ix_partial &&
@@ -570,7 +575,7 @@ int upd_record_indices(struct ireq *iq, void *trans, int *opfailcode,
                                           &od_oldtail_len, mangled_oldkey,
                                           old_dta, od_len, oldkey);
         } else
-            rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_olddta_tail, &od_oldtail_len, mangled_oldkey,
+            rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_olddta_tail, &od_oldtail_len, mangled_oldkey, partial_datacopy_oldtail,
                                         old_dta, od_len, oldkey, del_idx_blobs, MAXBLOBS, NULL);
         if (rc < 0) {
             if (iq->debug)
@@ -591,8 +596,8 @@ int upd_record_indices(struct ireq *iq, void *trans, int *opfailcode,
                                           &od_tail_len, mangled_newkey, od_dta,
                                           od_len, newkey);
         } else /* form the new key from "od_dta" into "newkey" */
-            rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_dta_tail, &od_tail_len, mangled_newkey, od_dta,
-                                        od_len, newkey, add_idx_blobs, MAXBLOBS, NULL);
+            rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_dta_tail, &od_tail_len, mangled_newkey, partial_datacopy_newtail,
+                                        od_dta, od_len, newkey, add_idx_blobs, MAXBLOBS, NULL);
         if (rc < 0) {
             if (iq->debug)
                 reqprintf(iq, "CAN'T FORM NEW KEY IX %d", ixnum);
@@ -960,6 +965,7 @@ int upd_new_record_add2indices(struct ireq *iq, void *trans,
     for (int ixnum = 0; ixnum < iq->usedb->nix; ixnum++) {
         char key[MAXKEYLEN];
         char mangled_key[MAXKEYLEN];
+        char partial_datacopy_tail[COMDB2_MAX_RECORD_SIZE];
         char *od_dta_tail = NULL;
         int od_tail_len = 0;
 
@@ -981,7 +987,7 @@ int upd_new_record_add2indices(struct ireq *iq, void *trans,
         else {
             rc = create_key_from_schema(
                 iq->usedb, use_new_tag ? NULL : find_tag_schema(iq->usedb->tablename, ".ONDISK"), ixnum, &od_dta_tail,
-                &od_tail_len, mangled_key, new_dta, nd_len, key, blobs, MAXBLOBS, NULL);
+                &od_tail_len, mangled_key, partial_datacopy_tail, new_dta, nd_len, key, blobs, MAXBLOBS, NULL);
         }
 
         if (rc) {

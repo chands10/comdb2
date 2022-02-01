@@ -1146,6 +1146,7 @@ int delayed_key_adds(struct ireq *iq, void *trans, int *blkpos, int *ixout,
     char *od_dta_tail = NULL;
     int od_tail_len = 0;
     char mangled_key[MAXKEYLEN];
+    char partial_datacopy_tail[COMDB2_MAX_RECORD_SIZE];
 
 #if DEBUG_REORDER
     logmsg(LOGMSG_DEBUG, "%s(): entering\n", __func__);
@@ -1345,8 +1346,8 @@ int delayed_key_adds(struct ireq *iq, void *trans, int *blkpos, int *ixout,
                                           &od_tail_len, mangled_key, od_dta,
                                           ondisk_size, key);
             else
-                rc = create_key_from_schema(iq->usedb, NULL, doidx, &od_dta_tail, &od_tail_len, mangled_key, od_dta,
-                                            ondisk_size, key, NULL, 0, iq->tzname);
+                rc = create_key_from_schema(iq->usedb, NULL, doidx, &od_dta_tail, &od_tail_len, mangled_key, partial_datacopy_tail, 
+                                            od_dta, ondisk_size, key, NULL, 0, iq->tzname);
             if (rc == -1) {
                 if (iq->debug)
                     reqprintf(iq, "ADDKYCNSTRT CANT FORM INDEX %d", ixnum);

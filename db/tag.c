@@ -7412,8 +7412,8 @@ int extract_decimal_quantum(const dbtable *db, int ix, char *inbuf,
 }
 
 int create_key_from_schema(const struct dbtable *db, struct schema *schema, int ixnum, char **tail, int *taillen,
-                           char *mangled_key, const char *inbuf, int inbuflen, char *outbuf, blob_buffer_t *inblobs,
-                           int maxblobs, const char *tzname)
+                           char *mangled_key, char *partial_datacopy_tail, const char *inbuf, int inbuflen, 
+                           char *outbuf, blob_buffer_t *inblobs, int maxblobs, const char *tzname)
 {
     int rc = 0;
     struct schema *fromsch, *tosch;
@@ -7466,12 +7466,12 @@ int create_key_from_schema(const struct dbtable *db, struct schema *schema, int 
                 abort();
             }
             if (tosch->flags & SCHEMA_PARTIALDATACOPY) {
-                rc = _stag_to_stag_buf_flags_blobs(fromsch, tosch->partial_datacopy, inbuf, mangled_key, 0 /*flags*/, NULL, inblobs, NULL /*outblobs*/,
+                rc = _stag_to_stag_buf_flags_blobs(fromsch, tosch->partial_datacopy, inbuf, partial_datacopy_tail, 0 /*flags*/, NULL, inblobs, NULL /*outblobs*/,
                                        maxblobs, tzname);
                 if (rc)
                     return rc;
 
-                *tail = (char *)mangled_key;
+                *tail = (char *)partial_datacopy_tail;
                 *taillen = get_size_of_schema(tosch->partial_datacopy);
             } else {
                 *tail = (char *)inbuf;
@@ -7506,13 +7506,13 @@ int create_key_from_schema(const struct dbtable *db, struct schema *schema, int 
 
 int create_key_from_ondisk(const struct dbtable *db, int ixnum, const char *inbuf, char *outbuf)
 {
-    return create_key_from_schema(db, NULL, ixnum, NULL, NULL, NULL, inbuf, 0, outbuf, NULL, 0, NULL);
+    return create_key_from_schema(db, NULL, ixnum, NULL, NULL, NULL, NULL, inbuf, 0, outbuf, NULL, 0, NULL);
 }
 
 int create_key_from_schema_simple(const struct dbtable *db, struct schema *schema, int ixnum, const char *inbuf,
                                   char *outbuf, blob_buffer_t *inblobs, int maxblobs)
 {
-    return create_key_from_schema(db, schema, ixnum, NULL, NULL, NULL, inbuf, 0, outbuf, inblobs, maxblobs, NULL);
+    return create_key_from_schema(db, schema, ixnum, NULL, NULL, NULL, NULL, inbuf, 0, outbuf, inblobs, maxblobs, NULL);
 }
 
 int create_key_from_ireq(struct ireq *iq, int ixnum, int isDelete, char **tail,

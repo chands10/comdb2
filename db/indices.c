@@ -554,7 +554,6 @@ int upd_record_indices(struct ireq *iq, void *trans, int *opfailcode,
         char partial_datacopy_oldtail[COMDB2_MAX_RECORD_SIZE];
         char partial_datacopy_newtail[COMDB2_MAX_RECORD_SIZE];
 
-
         /* index doesnt change */
         if (gbl_partial_indexes && iq->usedb->ix_partial &&
             !(ins_keys & (1ULL << ixnum)) && !(del_keys & (1ULL << ixnum)))

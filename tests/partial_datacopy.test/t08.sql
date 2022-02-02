@@ -36,5 +36,4 @@ select * from comdb2_partial_datacopies where tablename='t';
 select * from t where a < 40;
 select a, b, c from t where a < 40;
 
-
 drop table t;

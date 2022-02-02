@@ -6603,10 +6603,15 @@ static int fetch_blob_into_sqlite_mem(BtCursor *pCur, struct schema *sc,
     int bdberr;
     int nretries = 0;
     struct sql_thread *thd = pCur->thd;
+    struct schema *pd = NULL;
+
+    if (sc->flags & SCHEMA_PARTIALDATACOPY) {
+        pd = sc;
+    }
 
     if (!pCur->have_blob_descriptor) {
         gather_blob_data_byname(pCur->db->tablename, ".ONDISK",
-                                &pCur->blob_descriptor);
+                                &pCur->blob_descriptor, pd);
         pCur->have_blob_descriptor = 1;
     }
 
@@ -6663,7 +6668,7 @@ again:
     iq.usedb = pCur->db;
 
     if (check_one_blob_consistency(&iq, iq.usedb->tablename, ".ONDISK", &blobs,
-                                   dta, f->blob_index, 0)) {
+                                   dta, f->blob_index, 0, pd)) {
         free_blob_status_data(&blobs);
         nretries++;
         if (nretries >= gbl_maxblobretries) {
@@ -8081,7 +8086,7 @@ sqlite3BtreeCursor_cursor(Btree *pBt,      /* The btree */
     /* check one time if we have blobs when we open the cursor,
      * so we dont need to run this code for every row if we dont even
      * have them */
-    rc = gather_blob_data_byname(cur->db->tablename, ".ONDISK", &cur->blobs);
+    rc = gather_blob_data_byname(cur->db->tablename, ".ONDISK", &cur->blobs, NULL);
     if (rc) {
        logmsg(LOGMSG_ERROR, "sqlite3BtreeCursor: gather_blob_data error rc=%d\n", rc);
         return SQLITE_INTERNAL;

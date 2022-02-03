@@ -7466,7 +7466,7 @@ int create_key_from_schema(const struct dbtable *db, struct schema *schema, int 
                        fromtag, totag);
                 abort();
             }
-            if (tosch->flags & SCHEMA_PARTIALDATACOPY) {
+            if (partial_datacopy_tail && (tosch->flags & SCHEMA_PARTIALDATACOPY)) {
                 rc = _stag_to_stag_buf_flags_blobs(fromsch, tosch->partial_datacopy, inbuf, partial_datacopy_tail, 0 /*flags*/, NULL, inblobs, NULL /*outblobs*/,
                                        maxblobs, tzname);
                 if (rc)
@@ -7546,7 +7546,7 @@ int create_key_from_ireq(struct ireq *iq, int ixnum, int isDelete, char **tail,
         } else if (tail) {
             struct schema *fromsch = get_schema(db, -1);
             struct schema *tosch = get_schema(db, ixnum);
-            if (tosch->flags & SCHEMA_PARTIALDATACOPY) {
+            if (partial_datacopy_tail && (tosch->flags & SCHEMA_PARTIALDATACOPY)) {
                 rc = _stag_to_stag_buf_flags_blobs(fromsch, tosch->partial_datacopy, inbuf, partial_datacopy_tail, 0 /*flags*/, NULL, NULL /*inblobs*/, NULL /*outblobs*/,
                                        0 /*maxblobs*/, iq->tzname);
                 if (rc)

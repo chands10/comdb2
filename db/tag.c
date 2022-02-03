@@ -7529,8 +7529,8 @@ int create_key_from_schema_simple(const struct dbtable *db, struct schema *schem
 }
 
 int create_key_from_ireq(struct ireq *iq, int ixnum, int isDelete, char **tail,
-                         int *taillen, char *mangled_key, const char *inbuf,
-                         int inbuflen, char *outbuf)
+                         int *taillen, char *mangled_key, char *partial_datacopy_tail,
+                         const char *inbuf, int inbuflen, char *outbuf)
 {
     int rc = 0;
     dbtable *db = iq->usedb;
@@ -7556,8 +7556,20 @@ int create_key_from_ireq(struct ireq *iq, int ixnum, int isDelete, char **tail,
             }
             rc = -1; /* callers like -1 */
         } else if (tail) {
-            *tail = (char *)inbuf;
-            *taillen = inbuflen;
+            struct schema *fromsch = get_schema(db, -1);
+            struct schema *tosch = get_schema(db, ixnum);
+            if (tosch->flags & SCHEMA_PARTIALDATACOPY) {
+                rc = _stag_to_stag_buf_flags_blobs(fromsch, tosch->partial_datacopy, inbuf, partial_datacopy_tail, 0 /*flags*/, NULL, NULL /*inblobs*/, NULL /*outblobs*/,
+                                       0 /*maxblobs*/, iq->tzname);
+                if (rc)
+                    return rc;
+
+                *tail = (char *)partial_datacopy_tail;
+                *taillen = get_size_of_schema(tosch->partial_datacopy);
+            } else {
+                *tail = (char *)inbuf;
+                *taillen = inbuflen;
+            }
         }
     } else if (db->ix_collattr[ixnum]) {
         assert(db->ix_datacopy[ixnum] == 0);

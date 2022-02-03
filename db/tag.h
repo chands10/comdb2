@@ -415,8 +415,8 @@ int create_key_from_schema(const struct dbtable *db, struct schema *schema, int 
                            char *outbuf, blob_buffer_t *inblobs, int maxblobs, const char *tzname);
 
 int create_key_from_ireq(struct ireq *iq, int ixnum, int isDelete, char **tail,
-                         int *taillen, char *mangled_key, const char *inbuf,
-                         int inbuflen, char *outbuf);
+                         int *taillen, char *mangled_key, char *partial_datacopy_tail,
+                         const char *inbuf, int inbuflen, char *outbuf);
 
 char* typestr(int type, int len);
 

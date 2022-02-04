@@ -4649,8 +4649,13 @@ int cmp_index_int(struct schema *oldix, struct schema *newix, char *descr,
             }
 
             for (fidx = 0; fidx < newpd->nmembers; fidx++) {
-                // only need to check name field
-                if (strcmp(oldpd->member[fidx].name, newpd->member[fidx].name) != 0) {
+                struct field *oldfld = &oldpd->member[fidx];
+                struct field *newfld = &newpd->member[fidx];
+                if (oldfld->type != newfld->type
+                    || oldfld->offset != newfld->offset
+                    || oldfld->len != newfld->len
+                    || oldfld->flags != newfld->flags
+                    || strcmp(oldfld->name, newfld->name) != 0) {
                     if (descr)
                         snprintf(descr, descrlen, "field %d (%s) of partial datacopy changed",
                                 fidx + 1, oldpd->member[fidx].name);

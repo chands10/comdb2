@@ -928,6 +928,22 @@ void key_setpartialdatakey(void)
         any_errors++;
         return;
     }
+
+    // check for decimal columns (currently not supported)
+    struct table *tbl = &macc_globals->tables[macc_globals->ntables - 1];
+    int type;
+    for (int i = 0; i < tbl->nsym; i++) {
+        type = tbl->sym[i].type;
+        if (type == T_DECIMAL32 || type == T_DECIMAL64 || type == T_DECIMAL128) {
+            csc2_error("Error at line %3d: CURRENTLY CANNOT HAVE PARTIAL DATACOPY WITH DECIMAL COLUMNS.\n",
+                        current_line);
+            csc2_syntax_error("Error at line %3d: CURRENTLY CANNOT HAVE PARTIAL DATACOPY WITH DECIMAL COLUMNS.",
+                        current_line);
+            any_errors++;
+            return;
+        }
+    }
+
     macc_globals->workkeyflag |= PARTIALDATAKEY;
 }
 

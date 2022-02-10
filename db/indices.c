@@ -172,7 +172,7 @@ static int check_index(struct ireq *iq, void *trans, int ixnum, blob_buffer_t *b
     int rc;
     char key[MAXKEYLEN];
     char mangled_key[MAXKEYLEN];
-    char partial_datacopy_tail[COMDB2_MAX_RECORD_SIZE];
+    char partial_datacopy_tail[MAXRECSZ];
     char *od_dta_tail = NULL;
     int od_tail_len;
     int fndrrn = 0;
@@ -327,7 +327,7 @@ int add_record_indices(struct ireq *iq, void *trans, blob_buffer_t *blobs,
     for (int ixnum = 0; ixnum < iq->usedb->nix; ixnum++) {
         char *key = ditk.ixkey; // key points to chararray regardless reordering
         char mangled_key[MAXKEYLEN];
-        char partial_datacopy_tail[COMDB2_MAX_RECORD_SIZE];
+        char partial_datacopy_tail[MAXRECSZ];
 
         if (gbl_use_plan && iq->usedb->plan &&
             iq->usedb->plan->ix_plan[ixnum] != -1)
@@ -551,8 +551,8 @@ int upd_record_indices(struct ireq *iq, void *trans, int *opfailcode,
         char *newkey = ditk.ixkey;
         char mangled_oldkey[MAXKEYLEN];
         char mangled_newkey[MAXKEYLEN];
-        char partial_datacopy_oldtail[COMDB2_MAX_RECORD_SIZE];
-        char partial_datacopy_newtail[COMDB2_MAX_RECORD_SIZE];
+        char partial_datacopy_oldtail[MAXRECSZ];
+        char partial_datacopy_newtail[MAXRECSZ];
 
         /* index doesnt change */
         if (gbl_partial_indexes && iq->usedb->ix_partial &&
@@ -964,7 +964,7 @@ int upd_new_record_add2indices(struct ireq *iq, void *trans,
     for (int ixnum = 0; ixnum < iq->usedb->nix; ixnum++) {
         char key[MAXKEYLEN];
         char mangled_key[MAXKEYLEN];
-        char partial_datacopy_tail[COMDB2_MAX_RECORD_SIZE];
+        char partial_datacopy_tail[MAXRECSZ];
         char *od_dta_tail = NULL;
         int od_tail_len = 0;
 

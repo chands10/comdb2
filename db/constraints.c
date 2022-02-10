@@ -1146,7 +1146,7 @@ int delayed_key_adds(struct ireq *iq, void *trans, int *blkpos, int *ixout,
     char *od_dta_tail = NULL;
     int od_tail_len = 0;
     char mangled_key[MAXKEYLEN];
-    char partial_datacopy_tail[COMDB2_MAX_RECORD_SIZE];
+    char partial_datacopy_tail[MAXRECSZ];
 
 #if DEBUG_REORDER
     logmsg(LOGMSG_DEBUG, "%s(): entering\n", __func__);

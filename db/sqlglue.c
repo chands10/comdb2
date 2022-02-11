@@ -6605,7 +6605,7 @@ static int fetch_blob_into_sqlite_mem(BtCursor *pCur, struct schema *sc,
     struct sql_thread *thd = pCur->thd;
     struct schema *pd = NULL;
 
-    if (sc->flags & SCHEMA_PARTIALDATACOPY) {
+    if (sc->flags & SCHEMA_PARTIALDATACOPY_ACTUAL) {
         pd = sc;
     }
 

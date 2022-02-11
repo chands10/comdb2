@@ -4637,26 +4637,16 @@ int cmp_index_int(struct schema *oldix, struct schema *newix, char *descr,
         if (oldix->flags & newix->flags & SCHEMA_PARTIALDATACOPY) {
             struct schema *oldpd = oldix->partial_datacopy;
             struct schema *newpd = newix->partial_datacopy;
-            if (oldpd->nmembers != newpd->nmembers) {
-                if (descr)
-                    snprintf(descr, descrlen, "number of fields in partial datacopy has changed");
+            char *descr_helper = descr ? calloc(descrlen, sizeof(char)) : descr;
+            if (cmp_index_int(oldpd, newpd, descr_helper, descrlen)) {
+                if (descr) {
+                    snprintf(descr, descrlen, "%s in partial datacopy", descr_helper);
+                    free(descr_helper);
+                }
                 return 1;
             }
-
-            for (fidx = 0; fidx < newpd->nmembers; fidx++) {
-                struct field *oldfld = &oldpd->member[fidx];
-                struct field *newfld = &newpd->member[fidx];
-                if (oldfld->type != newfld->type
-                    || oldfld->offset != newfld->offset
-                    || oldfld->len != newfld->len
-                    || oldfld->flags != newfld->flags
-                    || strcmp(oldfld->name, newfld->name) != 0) {
-                    if (descr)
-                        snprintf(descr, descrlen, "field %d (%s) of partial datacopy changed",
-                                fidx + 1, oldpd->member[fidx].name);
-                    return 1;
-                }
-            }
+            if (descr)
+                free(descr_helper);
         }
     }
     return 0;

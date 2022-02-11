@@ -104,7 +104,8 @@ enum {
     SCHEMA_DYNAMIC = 16,
     SCHEMA_DATACOPY = 32, /* datacopy flag set on index */
     SCHEMA_UNIQNULLS = 64, /* treat all NULL values as UNIQUE */
-    SCHEMA_PARTIALDATACOPY = 128 /* partial datacopy flag set on index */
+    SCHEMA_PARTIALDATACOPY = 128, /* partial datacopy flag set on index */
+    SCHEMA_PARTIALDATACOPY_ACTUAL = 256 /* schema that contains partial datacopy fields referenced by partial datacopy index */
 };
 
 /* sql_record_member.flags */

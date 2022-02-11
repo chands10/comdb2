@@ -1604,7 +1604,7 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt)
                 p->csctag = NULL;
                 p->sqlitetag = NULL;
                 p->partial_datacopy = NULL;
-                p->flags = SCHEMA_PARTIALDATACOPY; // needed for blob fields to recognize partial datacopy
+                p->flags = SCHEMA_PARTIALDATACOPY_ACTUAL;
 
                 p->nmembers = numMembers;
                 p->member = calloc(p->nmembers, sizeof(struct field));

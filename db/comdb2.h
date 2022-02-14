@@ -612,6 +612,7 @@ typedef struct dbtable {
     signed char ix_dupes[MAXINDEX];
     signed char ix_recnums[MAXINDEX];
     signed char ix_datacopy[MAXINDEX];
+    int ix_datacopylen[MAXINDEX]; /* datacopy len in bytes */
     signed char ix_collattr[MAXINDEX];
     signed char ix_nullsallowed[MAXINDEX];
 

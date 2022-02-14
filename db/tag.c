@@ -1574,14 +1574,18 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt,
 
         s->flags = SCHEMA_INDEX;
 
+        db->ix_datacopylen[ix] = 0;
+
         if (dyns_is_idx_dup(ix))
             s->flags |= SCHEMA_DUP;
 
         if (dyns_is_idx_recnum(ix))
             s->flags |= SCHEMA_RECNUM;
 
-        if (dyns_is_idx_datacopy(ix))
+        if (dyns_is_idx_datacopy(ix)) {
             s->flags |= SCHEMA_DATACOPY;
+            db->ix_datacopylen[ix] = schema->recsize;
+        }
 
         if (dyns_is_idx_uniqnulls(ix))
             s->flags |= SCHEMA_UNIQNULLS;
@@ -1637,6 +1641,7 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt,
                     piece++;
                 }
 
+                db->ix_datacopylen[ix] = offset;
 
             } else {
                 goto errout;

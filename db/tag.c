@@ -7028,7 +7028,7 @@ static int load_new_ondisk(dbtable *db, tran_type *tran)
     newdb->handle = bdb_open_more_tran(
         db->tablename, thedb->basedir, newdb->lrl, newdb->nix,
         (short *)newdb->ix_keylen, newdb->ix_dupes, newdb->ix_recnums,
-        newdb->ix_datacopy, newdb->ix_collattr, newdb->ix_nullsallowed,
+        newdb->ix_datacopy, newdb->ix_datacopylen, newdb->ix_collattr, newdb->ix_nullsallowed,
         newdb->numblobs + 1, thedb->bdb_env, arg_tran, 0, &bdberr);
 
     if (bdberr != 0 || newdb->handle == NULL) {

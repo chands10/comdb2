@@ -893,7 +893,7 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
                 memcpy(&genid_right, (uint8_t *)dbt_data.data, sizeof(genid));
             }
 
-            if (expected_size != bdb_state->lrl) {
+            if (expected_size != bdb_state->ixdtalen[ix]) {
                 par->verify_status = 1;
                 locprint(par,
                          "!%016llx ix %d dtacpy payload wrong size expected %d "

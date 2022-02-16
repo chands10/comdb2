@@ -877,7 +877,7 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
              * payload in the dta file? */
             int expected_size;
             uint8_t *expected_data;
-            uint8_t datacopy_buffer[bdb_state->lrl];
+            uint8_t datacopy_buffer[bdb_state->ixdtalen[ix]];
             if (bdb_state->datacopy_odh) {
                 int odhlen;
                 unpack_index_odh(bdb_state, &dbt_data, &genid_right,

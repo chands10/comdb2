@@ -632,10 +632,10 @@ bdb_cursor_ifn_t *bdb_cursor_open(
         cur->type = BDBC_IX;
         if (bdb_state->ixdta[ixnum]) {
             cur->datacopy =
-                malloc(bdb_state->lrl + 2 * sizeof(unsigned long long));
+                malloc(bdb_state->ixdtalen[ixnum] + 2 * sizeof(unsigned long long));
             if (!cur->datacopy) {
                 logmsg(LOGMSG_ERROR, "%s: malloc %zu\n", __func__,
-                       bdb_state->lrl + 2 * sizeof(unsigned long long));
+                       bdb_state->ixdtalen[ixnum] + 2 * sizeof(unsigned long long));
                 *bdberr = BDBERR_MALLOC;
                 free(pcur_ifn);
                 return NULL;

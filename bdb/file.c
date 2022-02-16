@@ -4533,7 +4533,7 @@ deadlock_again:
                 /* for datacopy indexes, use a potentially larger pagesize */
                 if (bdb_state->ixdta[i])
                     pagesize =
-                        calc_pagesize(bdb_state->attr->pagesizeix, bdb_state->lrl + bdb_state->ixlen[i]);
+                        calc_pagesize(bdb_state->attr->pagesizeix, bdb_state->ixdtalen[i] + bdb_state->ixlen[i]);
                 /*else if (bdb_state->ixcollattr[i])  ignore this for now */
                 else
                     pagesize = calc_pagesize(bdb_state->attr->pagesizeix, bdb_state->ixlen[i]);

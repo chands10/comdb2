@@ -6528,7 +6528,7 @@ static void *bdb_cursor_datacopy(bdb_cursor_ifn_t *cur)
     if (bdb_state->ondisk_header && bdb_state->datacopy_odh &&
         (c->type == BDBC_DT || !is_genid_synthetic(c->genid))) {
         c->unpacked_datacopy = unpack_datacopy_odh(
-            cur, c->datacopy, bdb_state->lrl, from, size, &c->ver);
+            cur, c->datacopy, bdb_state->ixdtalen[c->idx], from, size, &c->ver);
     } else {
         c->unpacked_datacopy = from;
         c->ver = c->state->version;

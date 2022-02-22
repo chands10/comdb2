@@ -898,7 +898,7 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
                 locprint(par,
                          "!%016llx ix %d dtacpy payload wrong size expected %d "
                          "got %d",
-                         genid_flipped, ix, bdb_state->lrl, expected_size);
+                         genid_flipped, ix, bdb_state->ixdtalen[ix], expected_size);
                 goto next_key;
             }
 

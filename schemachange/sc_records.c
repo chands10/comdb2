@@ -2366,7 +2366,7 @@ static int unpack_and_upgrade_ondisk_record(struct convert_record_data *data,
     }
 
     if ((rc = vtag_to_ondisk_vermap(data->from, odh->recptr, dtalen,
-                                    odh->csc2vers)) <= 0) {
+                                    odh->csc2vers, -1)) <= 0) {
         logmsg(LOGMSG_ERROR, "%s:%d vtag-to-ondisk error rc=%d\n", __func__,
                __LINE__, rc);
         return rc;

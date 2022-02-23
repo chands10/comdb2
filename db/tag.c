@@ -2750,13 +2750,14 @@ const uint8_t *flddtasizes_get(struct flddtasizes *p_flddtasizes,
  * Also return the len of new record if len != NULL.
  * 0 otherwise */
 int vtag_to_ondisk_vermap(const dbtable *db, uint8_t *rec, int *len,
-                          uint8_t ver)
+                          uint8_t ver, int pd_ix)
 {
     struct schema *from_schema;
     struct schema *to_schema;
     char ver_tag[MAXTAGLEN];
     void *inbuf;
     int rc;
+    int rlen;
     struct convert_failure reason;
 
     if (!db || !db->instant_schema_change || !rec)
@@ -2770,16 +2771,20 @@ int vtag_to_ondisk_vermap(const dbtable *db, uint8_t *rec, int *len,
         exit(1);
     }
 
-    if (ver == db->schema_version) {
-        goto done;
-    }
-
     /* fix dbstore values */
-    to_schema = db->schema;
+    if (pd_ix == -1)
+        to_schema = db->schema;
+    else
+        to_schema = db->schema->ix[pd_ix]->partial_datacopy;
+
     if (to_schema == NULL) {
         logmsg(LOGMSG_FATAL, "could not get to_schema for .ONDISK in %s\n",
                db->tablename);
         exit(1);
+    }
+
+    if (ver == db->schema_version) {
+        goto done;
     }
 
     if (db->versmap[ver] == NULL) { // not possible
@@ -2847,9 +2852,14 @@ int vtag_to_ondisk_vermap(const dbtable *db, uint8_t *rec, int *len,
     }
 
 done:
+    if (pd_ix == -1)
+        rlen = db->lrl;
+    else
+        rlen = get_size_of_schema(to_schema);
+
     if (len)
-        *len = db->lrl;
-    return db->lrl;
+        *len = rlen;
+    return rlen;
 }
 
 /* Convert record from old version to ondisk.
@@ -2889,7 +2899,7 @@ int vtag_to_ondisk(const dbtable *db, uint8_t *rec, int *len, uint8_t ver,
         offload_comm_send_upgrade_records(db, genid);
 
     if (BDB_ATTR_GET(thedb->bdb_attr, USE_VTAG_ONDISK_VERMAP))
-        return vtag_to_ondisk_vermap(db, rec, len, ver);
+        return vtag_to_ondisk_vermap(db, rec, len, ver, -1);
 
     /* find schema for older version */
     snprintf(ver_tag, sizeof ver_tag, "%s%d", gbl_ondisk_ver, ver);
@@ -3418,6 +3428,11 @@ void free_db_record(struct dbrecord *db)
     free(db->recbuf);
     free(db->tag);
     free(db);
+}
+
+int stag_to_stag_buf_schemas(struct schema *fromsch, struct schema *tosch, const char *inbuf, char *outbuf, const char *tzname)
+{
+    return _stag_to_stag_buf_flags_blobs(fromsch, tosch, inbuf, outbuf, 0, NULL, NULL, NULL, 0, tzname);
 }
 
 int stag_to_stag_buf_blobs(const char *table, const char *fromtag,

@@ -197,7 +197,7 @@ static int decompress_and_upgrade(logicalops_cursor *pCur, char *table,
     *record = odh->recptr;
 
     if (isrec && (rc = vtag_to_ondisk_vermap(pCur->db, *record, reclen,
-                    odh->csc2vers)) <= 0) {
+                    odh->csc2vers, -1)) <= 0) {
         logmsg(LOGMSG_ERROR, "%s line %d vtag-to-ondisk error %d\n", __func__,
                 __LINE__, rc);
         return SQLITE_INTERNAL;

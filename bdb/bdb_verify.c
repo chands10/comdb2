@@ -876,9 +876,10 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
             /*  if dtacopy, does data payload in the key match the data
              * payload in the dta file? */
             int expected_size;
+            int datacopy_size = bdb_state->ixdtalen[ix] > 0 ? bdb_state->ixdtalen[ix] : bdb_state->lrl;
             uint8_t *expected_data;
-            uint8_t datacopy_buffer[bdb_state->ixdtalen[ix]];
-            int pd_ix = bdb_state->ixdtalen[ix] == bdb_state->lrl ? -1 : ix; // TODO: fix
+            uint8_t datacopy_buffer[datacopy_size];
+            int pd_ix = bdb_state->ixdtalen[ix] > 0 ? ix : -1; // will be >= 0 if partial datacopy
             if (bdb_state->datacopy_odh) {
                 int odhlen;
                 unpack_index_odh(bdb_state, &dbt_data, &genid_right,
@@ -894,16 +895,16 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
                 memcpy(&genid_right, (uint8_t *)dbt_data.data, sizeof(genid));
             }
 
-            if (expected_size != bdb_state->ixdtalen[ix]) {
+            if (expected_size != datacopy_size) {
                 par->verify_status = 1;
                 locprint(par,
                          "!%016llx ix %d dtacpy payload wrong size expected %d "
                          "got %d",
-                         genid_flipped, ix, bdb_state->ixdtalen[ix], expected_size);
+                         genid_flipped, ix, datacopy_size, expected_size);
                 goto next_key;
             }
 
-            char tail[bdb_state->ixdtalen[ix]];
+            char tail[datacopy_size];
             void *compared_data = dbt_dta_check_data.data;
             if (pd_ix != -1) {
                 rc = par->partial_datacopy_callback(par->db_table, pd_ix, dbt_dta_check_data.data, tail);
@@ -916,7 +917,7 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
             }
 
             if (memcmp(expected_data, compared_data,
-                       bdb_state->ixdtalen[ix])) {
+                       datacopy_size)) {
                 par->verify_status = 1;
                 locprint(par, "!%016llx ix %d dtacpy data mismatch",
                          genid_flipped, ix);

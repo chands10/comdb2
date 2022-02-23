@@ -1584,7 +1584,6 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt,
 
         if (dyns_is_idx_datacopy(ix)) {
             s->flags |= SCHEMA_DATACOPY;
-            db->ix_datacopylen[ix] = schema->recsize;
         }
 
         if (dyns_is_idx_uniqnulls(ix))

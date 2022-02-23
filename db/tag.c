@@ -2746,6 +2746,8 @@ const uint8_t *flddtasizes_get(struct flddtasizes *p_flddtasizes,
  * If the schemas are compatible it uses the buffer from the original vers
  * and only sets the dbstore elements it needs onto the buffer.
  * If schemas are not compatible, we convert from old version to ondisk.
+ * pd_ix is -1 if we are not using partial datacopy, else represents the
+ * index of schema with partial datacopy.
  * Return ondisk rec len if record was changed;
  * Also return the len of new record if len != NULL.
  * 0 otherwise */
@@ -2855,7 +2857,7 @@ done:
     if (pd_ix == -1)
         rlen = db->lrl;
     else
-        rlen = get_size_of_schema(to_schema);
+        rlen = get_size_of_schema(to_schema); // partial datacopy length
 
     if (len)
         *len = rlen;

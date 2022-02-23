@@ -903,7 +903,7 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
                 goto next_key;
             }
 
-            char tail[MAXRECSZ];
+            char tail[bdb_state->ixdtalen[ix]];
             void *compared_data = dbt_dta_check_data.data;
             if (pd_ix != -1) {
                 rc = par->partial_datacopy_callback(par->db_table, pd_ix, dbt_dta_check_data.data, tail);

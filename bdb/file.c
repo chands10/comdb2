@@ -4531,11 +4531,12 @@ deadlock_again:
                way to override this in the lrl file, we're gonna listen */
             if (pagesize == 4096) {
                 /* for datacopy indexes, use a potentially larger pagesize */
-                if (bdb_state->ixdta[i])
+                if (bdb_state->ixdta[i]) {
+                    int datacopy_size = bdb_state->ixdtalen[i] > 0 ? bdb_state->ixdtalen[i] : bdb_state->lrl;
                     pagesize =
-                        calc_pagesize(bdb_state->attr->pagesizeix, bdb_state->ixdtalen[i] + bdb_state->ixlen[i]);
+                        calc_pagesize(bdb_state->attr->pagesizeix, datacopy_size + bdb_state->ixlen[i]);
                 /*else if (bdb_state->ixcollattr[i])  ignore this for now */
-                else
+                } else
                     pagesize = calc_pagesize(bdb_state->attr->pagesizeix, bdb_state->ixlen[i]);
             }
 

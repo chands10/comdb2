@@ -230,6 +230,8 @@ int stag_to_ctag_buf_blobs_tz(const char *table, const char *stag,
                               blob_buffer_t *inblobs, blob_buffer_t *outblobs,
                               int maxblobs, const char *tzname);
 
+int stag_to_stag_buf_schemas(struct schema *fromsch, struct schema *tosch,
+                             const char *inbuf, char *outbuf, const char *tzname);
 int stag_to_stag_buf_blobs(const char *table, const char *fromtag,
                            const char *inbuf, const char *totag, char *outbuf,
                            struct convert_failure *reason, blob_buffer_t *blobs,

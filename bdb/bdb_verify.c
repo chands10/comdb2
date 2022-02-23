@@ -324,7 +324,7 @@ static int bdb_verify_data_stripe(verify_common_t *par, int dtastripe,
         check_order(db, &dbt_old_key, &dbt_key, par);
 
         par->vtag_callback(par->db_table, dbt_data.data, (int *)&dbt_data.size,
-                           ver);
+                           ver, -1);
         rc = par->get_blob_sizes_callback(par->db_table, dbt_data.data,
                                           blobsizes, bloboffs, &nblobs);
         if (rc) {
@@ -741,7 +741,7 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
 
         int keylen;
         par->vtag_callback(par->db_table, dbt_dta_check_data.data, &keylen,
-                           ver);
+                           ver, -1);
         if (gbl_expressions_indexes &&
             is_comdb2_index_expression(bdb_state->name)) {
             /* indexes expressions may need blobs */
@@ -878,6 +878,7 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
             int expected_size;
             uint8_t *expected_data;
             uint8_t datacopy_buffer[bdb_state->ixdtalen[ix]];
+            int pd_ix = bdb_state->ixdtalen[ix] == bdb_state->lrl ? -1 : ix; // TODO: fix
             if (bdb_state->datacopy_odh) {
                 int odhlen;
                 unpack_index_odh(bdb_state, &dbt_data, &genid_right,
@@ -885,7 +886,7 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
                                  &odhlen, &ver);
                 expected_size = odhlen;
                 par->vtag_callback(par->db_table, datacopy_buffer,
-                                   &expected_size, ver);
+                                   &expected_size, ver, pd_ix);
                 expected_data = datacopy_buffer;
             } else {
                 expected_size = dbt_data.size - sizeof(genid);
@@ -902,8 +903,20 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
                 goto next_key;
             }
 
-            if (memcmp(expected_data, dbt_dta_check_data.data,
-                       bdb_state->lrl)) {
+            char tail[MAXRECSZ];
+            void *compared_data = dbt_dta_check_data.data;
+            if (pd_ix != -1) {
+                rc = par->partial_datacopy_callback(par->db_table, pd_ix, dbt_dta_check_data.data, tail);
+                if (rc) {
+                    par->verify_status = 1;
+                    locprint(par, "!%016llx ix %d could not convert dta", genid_flipped);
+                    goto next_key;
+                }
+                compared_data = tail;
+            }
+
+            if (memcmp(expected_data, compared_data,
+                       bdb_state->ixdtalen[ix])) {
                 par->verify_status = 1;
                 locprint(par, "!%016llx ix %d dtacpy data mismatch",
                          genid_flipped, ix);

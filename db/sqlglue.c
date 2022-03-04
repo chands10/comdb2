@@ -2580,7 +2580,7 @@ static int cursor_move_table(BtCursor *pCur, int *pRes, int how)
              */
             pCur->bdbcur->get_found_data(pCur->bdbcur, &pCur->rrn, &pCur->genid,
                                          &sz, &buf, &ver);
-            vtag_to_ondisk_vermap(pCur->db, buf, &sz, ver, -1);
+            vtag_to_ondisk_vermap(pCur->db, buf, &sz, ver);
             if (sz > getdatsize(pCur->db)) {
                 /* This shouldn't happen, but check anyway */
                logmsg(LOGMSG_ERROR, "%s: incorrect datsize %d\n", __func__, sz);
@@ -7164,18 +7164,14 @@ int get_datacopy(BtCursor *pCur, int fnum, Mem *m)
 {
     uint8_t *in;
     struct schema *s;
-    int pd_ix = -1;
 
     s = pCur->db->schema;
+    in = pCur->bdbcur->datacopy(pCur->bdbcur);
     if (s->ix[pCur->ixnum]->flags & SCHEMA_PARTIALDATACOPY) {
         s = s->ix[pCur->ixnum]->partial_datacopy;
-        pd_ix = pCur->ixnum;
-    }
-
-    in = pCur->bdbcur->datacopy(pCur->bdbcur);
-    if (!is_genid_synthetic(pCur->genid)) {
+    } else if (!is_genid_synthetic(pCur->genid)) {
         uint8_t ver = pCur->bdbcur->ver(pCur->bdbcur);
-        vtag_to_ondisk_vermap(pCur->db, in, NULL, ver, pd_ix);
+        vtag_to_ondisk_vermap(pCur->db, in, NULL, ver);
     }
 
     return get_data(pCur, s, in, fnum, m, 0, pCur->clnt->tzname);

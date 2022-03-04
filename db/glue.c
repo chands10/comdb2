@@ -2808,7 +2808,7 @@ retry:
                                          reqdtalen, trans, &args, &bdberr);
     iq->gluewhere = "bdb_fetch_next_dtastripe_record done";
     if (rc == 0) {
-        vtag_to_ondisk_vermap(iq->usedb, dta, reqdtalen, args.ver, -1);
+        vtag_to_ondisk_vermap(iq->usedb, dta, reqdtalen, args.ver);
         if (ver != NULL)
             *ver = args.ver;
         return rc;

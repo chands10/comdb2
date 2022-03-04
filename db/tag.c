@@ -1581,9 +1581,8 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt)
         if (dyns_is_idx_recnum(ix))
             s->flags |= SCHEMA_RECNUM;
 
-        if (dyns_is_idx_datacopy(ix)) {
+        if (dyns_is_idx_datacopy(ix))
             s->flags |= SCHEMA_DATACOPY;
-        }
 
         if (dyns_is_idx_uniqnulls(ix))
             s->flags |= SCHEMA_UNIQNULLS;
@@ -2745,20 +2744,17 @@ const uint8_t *flddtasizes_get(struct flddtasizes *p_flddtasizes,
  * If the schemas are compatible it uses the buffer from the original vers
  * and only sets the dbstore elements it needs onto the buffer.
  * If schemas are not compatible, we convert from old version to ondisk.
- * pd_ix is -1 if we are not using partial datacopy, else represents the
- * index of schema with partial datacopy.
  * Return ondisk rec len if record was changed;
  * Also return the len of new record if len != NULL.
  * 0 otherwise */
 int vtag_to_ondisk_vermap(const dbtable *db, uint8_t *rec, int *len,
-                          uint8_t ver, int pd_ix)
+                          uint8_t ver)
 {
     struct schema *from_schema;
     struct schema *to_schema;
     char ver_tag[MAXTAGLEN];
     void *inbuf;
     int rc;
-    int rlen;
     struct convert_failure reason;
 
     if (!db || !db->instant_schema_change || !rec)
@@ -2772,20 +2768,16 @@ int vtag_to_ondisk_vermap(const dbtable *db, uint8_t *rec, int *len,
         exit(1);
     }
 
-    /* fix dbstore values */
-    if (pd_ix == -1)
-        to_schema = db->schema;
-    else
-        to_schema = db->schema->ix[pd_ix]->partial_datacopy;
+    if (ver == db->schema_version) {
+        goto done;
+    }
 
+    /* fix dbstore values */
+    to_schema = db->schema;
     if (to_schema == NULL) {
         logmsg(LOGMSG_FATAL, "could not get to_schema for .ONDISK in %s\n",
                db->tablename);
         exit(1);
-    }
-
-    if (ver == db->schema_version) {
-        goto done;
     }
 
     if (db->versmap[ver] == NULL) { // not possible
@@ -2853,14 +2845,9 @@ int vtag_to_ondisk_vermap(const dbtable *db, uint8_t *rec, int *len,
     }
 
 done:
-    if (pd_ix == -1)
-        rlen = db->lrl;
-    else
-        rlen = get_size_of_schema(to_schema); // partial datacopy length
-
     if (len)
-        *len = rlen;
-    return rlen;
+        *len = db->lrl;
+    return db->lrl;
 }
 
 /* Convert record from old version to ondisk.
@@ -2900,7 +2887,7 @@ int vtag_to_ondisk(const dbtable *db, uint8_t *rec, int *len, uint8_t ver,
         offload_comm_send_upgrade_records(db, genid);
 
     if (BDB_ATTR_GET(thedb->bdb_attr, USE_VTAG_ONDISK_VERMAP))
-        return vtag_to_ondisk_vermap(db, rec, len, ver, -1);
+        return vtag_to_ondisk_vermap(db, rec, len, ver);
 
     /* find schema for older version */
     snprintf(ver_tag, sizeof ver_tag, "%s%d", gbl_ondisk_ver, ver);

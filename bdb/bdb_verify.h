@@ -39,7 +39,7 @@ typedef struct {
                             int ix, void *keyout, int *keysz);
     int (*get_blob_sizes_callback)(const struct dbtable *tbl, void *dta, int blobs[16],
                                    int bloboffs[16], int *nblobs);
-    int (*vtag_callback)(void *parm, void *dta, int *dtasz, uint8_t ver, int pd_ix);
+    int (*vtag_callback)(void *parm, void *dta, int *dtasz, uint8_t ver);
     int (*add_blob_buffer_callback)(void *parm, void *dta, int dtasz, int blobno);
     void (*free_blob_buffer_callback)(void *parm);
     unsigned long long (*verify_indexes_callback)(void *parm, void *dta, void *blob_parm);

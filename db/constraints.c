@@ -1346,7 +1346,7 @@ int delayed_key_adds(struct ireq *iq, void *trans, int *blkpos, int *ixout,
                                           &od_tail_len, mangled_key, partial_datacopy_tail, od_dta,
                                           ondisk_size, key);
             else
-                rc = create_key_from_schema(iq->usedb, NULL, doidx, &od_dta_tail, &od_tail_len, mangled_key, partial_datacopy_tail, 
+                rc = create_key_from_schema(iq->usedb, NULL, doidx, &od_dta_tail, &od_tail_len, mangled_key, partial_datacopy_tail,
                                             od_dta, ondisk_size, key, NULL, 0, iq->tzname);
             if (rc == -1) {
                 if (iq->debug)

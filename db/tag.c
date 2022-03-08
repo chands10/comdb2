@@ -7428,7 +7428,7 @@ int extract_decimal_quantum(const dbtable *db, int ix, char *inbuf,
 }
 
 int create_key_from_schema(const struct dbtable *db, struct schema *schema, int ixnum, char **tail, int *taillen,
-                           char *mangled_key, char *partial_datacopy_tail, const char *inbuf, int inbuflen, 
+                           char *mangled_key, char *partial_datacopy_tail, const char *inbuf, int inbuflen,
                            char *outbuf, blob_buffer_t *inblobs, int maxblobs, const char *tzname)
 {
     int rc = 0;

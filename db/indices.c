@@ -355,7 +355,7 @@ int add_record_indices(struct ireq *iq, void *trans, blob_buffer_t *blobs,
             rc = create_key_from_ireq(iq, ixnum, 0, &od_dta_tail, &od_tail_len,
                                       mangled_key, partial_datacopy_tail, od_dta, od_len, key);
         else {
-            rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_dta_tail, &od_tail_len, mangled_key, partial_datacopy_tail, 
+            rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_dta_tail, &od_tail_len, mangled_key, partial_datacopy_tail,
                                         od_dta, od_len, key, blobs, maxblobs, iq->tzname);
         }
         if (rc == -1) {

@@ -293,7 +293,7 @@ the data record in the btree used for the index.  This copy is maintained transp
 This allows for large performance gains when reading sequential records from on a key.  The trade-off is the 
 use of more disk space.
 
-To only copy a subset of the columns (partial datacopy), follow the ```datacopy``` keyword by a comma-separated list of columns 
+To only copy a subset of the columns (partial datacopy), follow the ```datacopy``` keyword by a comma-separated list of columns
 closed by parentheses to include in the datacopy. Note that currently partial datacopies cannot be used at all
 in tables that contain decimal fields.
 

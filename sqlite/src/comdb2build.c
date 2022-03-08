@@ -3774,8 +3774,8 @@ static char *prepare_csc2(Parse *pParse, struct comdb2_ddl_context *ctx)
       * Unique
       * Columns must not allow NULLs
       * Must be only one per table
-      Check that datacopy and partial datacopy are both not set
-      Check that partial datacopy columns are valid
+      * Check that datacopy and partial datacopy are both not set
+      * Check that partial datacopy columns are valid
     */
     int pk_count = 0;
     LISTC_FOR_EACH(&ctx->schema->key_list, key, lnk)

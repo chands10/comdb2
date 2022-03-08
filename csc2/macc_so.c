@@ -1334,11 +1334,11 @@ void key_piece_add(char *buf,
 void datakey_piece_add(char *buf) {
     int tidx = 0;
     struct partial_datacopy *temp;
-    
+
     strlower(buf, strlen(buf));
     int i = find_symbol(buf, &tidx);
     if (i == -1) { // will error
-        return; 
+        return;
     }
 
     // check if field already present
@@ -2735,7 +2735,7 @@ int dyns_get_idx_partial_datacopy(int index, struct partial_datacopy **partial_d
         *partial_datacopy = macc_globals->keys[i]->pd;
         return 0;
     }
-    
+
     return -1;
 }
 

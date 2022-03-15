@@ -322,7 +322,7 @@ columnname(A) ::= nm(A) typetoken(Y). {sqlite3AddColumn(pParse,&A,&Y);}
   CHECK COMMITSLEEP CONSUMER CONVERTSLEEP COUNTER COVERAGE CRLE
   DATA DATABLOB DATACOPY DBPAD DEFERRABLE DETERMINISTIC DISABLE 
   DISTRIBUTION DRYRUN ENABLE EXEC EXECUTE FUNCTION GENID48 GET 
-  GRANT INCREMENT IPU ISC KW LUA LZ4 NONE
+  GRANT INCLUDE INCREMENT IPU ISC KW LUA LZ4 NONE
   ODH OFF OP OPTION OPTIONS
   PAGEORDER PARTITIONED PASSWORD PAUSE PERIOD PENDING PROCEDURE PUT
   REBUILD READ READONLY REC RESERVED RESUME RETENTION REVOKE RLE ROWLOCKS
@@ -1574,12 +1574,35 @@ paren_exprlist(A) ::= LP exprlist(X) RP.  {A = X;}
 ///////////////////////////// The CREATE INDEX command ///////////////////////
 //
 %ifdef SQLITE_BUILDING_FOR_COMDB2
+%type pdl {ExprList*}
+%destructor pdl {sqlite3ExprListDelete(pParse->db, $$);}
+pdl(A) ::= pdl(A) COMMA nm(Y). {
+  A = sqlite3ExprListAppend(pParse,A,tokenExpr(pParse,@Y,Y));
+}
+pdl(A) ::= nm(Y). {
+  A = sqlite3ExprListAppend(pParse,0,tokenExpr(pParse,@Y,Y)); /*A-overwrites-Y*/
+}
+%type with_inc {ExprList*}
+%destructor with_inc {sqlite3ExprListDelete(pParse->db, $$);}
+with_inc(A) ::= LP pdl(P) RP. {A = P;}
+with_inc(A) ::= . {A = 0;}
+%type with_opt2 {int}
+with_opt2(A) ::= ALL. {A = 1;}
+with_opt2(A) ::= . {A = 0;}
 cmd ::= createkw(S) temp(T) uniqueflag(U) INDEX ifnotexists(NE) nm(X) dbnm(D)
         ON nm(Y) LP sortlist(Z) RP with_opt(O) scanpt(BW) where_opt(W) scanpt(AW). {
   comdb2CreateIndex(pParse, &X, &D,
                     sqlite3SrcListAppend(pParse,0,&Y,0), Z, U,
                      &S, W, BW, AW, SQLITE_SO_ASC, NE, SQLITE_IDXTYPE_APPDEF,
-                     O, T);
+                     O, 0, T);
+}
+// datacopy with include syntax
+cmd ::= createkw(S) temp(T) uniqueflag(U) INDEX ifnotexists(NE) nm(X) dbnm(D)
+        ON nm(Y) LP sortlist(Z) RP INCLUDE with_opt2(O) with_inc(P) scanpt(BW) where_opt(W) scanpt(AW). {
+  comdb2CreateIndex(pParse, &X, &D,
+                    sqlite3SrcListAppend(pParse,0,&Y,0), Z, U,
+                     &S, W, BW, AW, SQLITE_SO_ASC, NE, SQLITE_IDXTYPE_APPDEF,
+                     O, P, T);
 }
 %endif SQLITE_BUILDING_FOR_COMDB2
 %ifndef SQLITE_BUILDING_FOR_COMDB2

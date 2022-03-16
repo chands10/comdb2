@@ -732,7 +732,7 @@ stack
           {stack
               {line {or {line UNIQUE } {line INDEX } }
                   {opt index-name } ( index-column-list ) }
-              {line {opt OPTION DATACOPY } {opt WHERE expr } }
+              {line {opt INCLUDE {or ALL {line ( {loop column-name , } ) } } } {opt WHERE expr } }
           }
       }
       {line PRIMARY KEY ( index-column-list ) }
@@ -793,7 +793,7 @@ stack
                               {stack
                                   {line {opt UNIQUE } INDEX index-name
                                       ( index-column-list ) }
-                                  {line {opt WITH DATACOPY } {opt WHERE expr } }
+                                  {line {opt INCLUDE {or ALL {line ( {loop column-name , } ) } } } {opt WHERE expr } }
                               }
                               {stack
                                   {line {opt CONSTRAINT constraint-name } }

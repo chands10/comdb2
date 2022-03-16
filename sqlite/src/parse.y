@@ -1299,7 +1299,7 @@ expr(A) ::= expr(A) COLLATE ids(C). {
 expr(A) ::= expr(A) COLLATE DATACOPY. {
   if (pParse->db->init.busy == 0) {
       sqlite3ErrorMsg(pParse, "Support for 'COLLATE DATACOPY' syntax "
-                      "has been removed; use OPTION DATACOPY.");
+                      "has been removed; use INCLUDE ALL.");
       pParse->rc = SQLITE_ERROR;
   } else {
       Token t = {"DATACOPY", 8};

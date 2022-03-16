@@ -5413,6 +5413,10 @@ static void comdb2AddIndexInt(
             }
 
         }
+    } else if (withOpts == 2) {
+        pParse->rc = SQLITE_ERROR;
+        sqlite3ErrorMsg(pParse, "Expected partial datacopy columns or 'ALL' keyword after 'INCLUDE'.");
+        goto cleanup;
     }
 
     if (pPIWhere && zStart && zEnd) {

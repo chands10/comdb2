@@ -1588,7 +1588,7 @@ with_inc(A) ::= LP pdl(P) RP. {A = P;}
 with_inc(A) ::= . {A = 0;}
 %type with_opt2 {int}
 with_opt2(A) ::= ALL. {A = 1;}
-with_opt2(A) ::= . {A = 0;}
+with_opt2(A) ::= . {A = 2;} // partial datacopy
 cmd ::= createkw(S) temp(T) uniqueflag(U) INDEX ifnotexists(NE) nm(X) dbnm(D)
         ON nm(Y) LP sortlist(Z) RP with_opt(O) scanpt(BW) where_opt(W) scanpt(AW). {
   comdb2CreateIndex(pParse, &X, &D,

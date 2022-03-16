@@ -836,7 +836,7 @@ stack
       stack
       {line CREATE {opt UNIQUE } INDEX {opt IF NOT EXISTS } }
       {line {opt db-name } index-name ON table-name ( index-column-list ) }
-      {line {opt OPTION DATACOPY } {opt WHERE expr } }
+      {line {opt INCLUDE {or ALL {line ( {loop column-name , } ) } } } {opt WHERE expr } }
   }
 
   drop-index {

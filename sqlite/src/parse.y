@@ -486,13 +486,13 @@ ccons ::= PRIMARY KEY sortorder(Z) onconf(R) autoinc(I).
 %ifdef SQLITE_BUILDING_FOR_COMDB2
 ccons ::= UNIQUE onconf(R).      {
     comdb2AddIndex(pParse, 0, 0, R, 0, 0, 0, SQLITE_SO_ASC,
-                   SQLITE_IDXTYPE_UNIQUE, 0);
+                   SQLITE_IDXTYPE_UNIQUE, 0, 0);
 }
 ccons ::= REFERENCES nm(T) LP eidlist(TA) RP refargs(R).
                                  {comdb2CreateForeignKey(pParse,0,&T,TA,R);}
 ccons ::= INDEX onconf(R).       {
     comdb2AddIndex(pParse, 0, 0, R, 0, 0, 0, SQLITE_SO_ASC,
-                   SQLITE_IDXTYPE_DUPKEY, 0);
+                   SQLITE_IDXTYPE_DUPKEY, 0, 0);
 }
 %endif SQLITE_BUILDING_FOR_COMDB2
 %ifndef SQLITE_BUILDING_FOR_COMDB2
@@ -578,10 +578,17 @@ tcons ::= PRIMARY KEY LP sortlist(X) autoinc(I) RP onconf(R). {
   comdb2AddPrimaryKey(pParse, X, R, I, 0);
 }
 tcons ::= UNIQUE nm_opt(I) LP sortlist(X) RP onconf(R) with_opt(O) scanpt(BW) where_opt(W) scanpt(AW). {
-  comdb2AddIndex(pParse, &I, X, R, W, BW, AW, SQLITE_SO_ASC, SQLITE_IDXTYPE_UNIQUE, O);
+  comdb2AddIndex(pParse, &I, X, R, W, BW, AW, SQLITE_SO_ASC, SQLITE_IDXTYPE_UNIQUE, O, 0);
 }
 tcons ::= INDEX nm_opt(I) LP sortlist(X) RP with_opt(O) scanpt(BW) where_opt(W) scanpt(AW). {
-  comdb2AddIndex(pParse, &I, X, 0, W, BW, AW, SQLITE_SO_ASC, SQLITE_IDXTYPE_DUPKEY, O);
+  comdb2AddIndex(pParse, &I, X, 0, W, BW, AW, SQLITE_SO_ASC, SQLITE_IDXTYPE_DUPKEY, O, 0);
+}
+// datacopy with include syntax
+tcons ::= UNIQUE nm_opt(I) LP sortlist(X) RP onconf(R) INCLUDE with_opt2(O) with_inc(P) scanpt(BW) where_opt(W) scanpt(AW). {
+  comdb2AddIndex(pParse, &I, X, R, W, BW, AW, SQLITE_SO_ASC, SQLITE_IDXTYPE_UNIQUE, O, P);
+}
+tcons ::= INDEX nm_opt(I) LP sortlist(X) RP INCLUDE with_opt2(O) with_inc(P) scanpt(BW) where_opt(W) scanpt(AW). {
+  comdb2AddIndex(pParse, &I, X, 0, W, BW, AW, SQLITE_SO_ASC, SQLITE_IDXTYPE_DUPKEY, O, P);
 }
 tcons ::= FOREIGN KEY LP eidlist(FA) RP
           REFERENCES nm(T) LP eidlist(TA) RP refargs(R) defer_subclause_opt(D). {
@@ -1577,10 +1584,10 @@ paren_exprlist(A) ::= LP exprlist(X) RP.  {A = X;}
 %type pdl {ExprList*}
 %destructor pdl {sqlite3ExprListDelete(pParse->db, $$);}
 pdl(A) ::= pdl(A) COMMA nm(Y). {
-  A = sqlite3ExprListAppend(pParse,A,tokenExpr(pParse,@Y,Y));
+  A = sqlite3ExprListAppend(pParse,A,tokenExpr(pParse,TK_ID,Y));
 }
 pdl(A) ::= nm(Y). {
-  A = sqlite3ExprListAppend(pParse,0,tokenExpr(pParse,@Y,Y)); /*A-overwrites-Y*/
+  A = sqlite3ExprListAppend(pParse,0,tokenExpr(pParse,TK_ID,Y)); /*A-overwrites-Y*/
 }
 %type with_inc {ExprList*}
 %destructor with_inc {sqlite3ExprListDelete(pParse->db, $$);}
@@ -1988,7 +1995,13 @@ alter_table_drop_cons ::= DROP CONSTRAINT nm(Y). {
 alter_table_add_index ::= ADD uniqueflag(U) INDEX nm(I) LP sortlist(X) RP
                           with_opt(O) where_opt(W). {
   comdb2AddIndex(pParse, &I, X, 0, W, 0, 0, SQLITE_SO_ASC, (U == OE_Abort) ?
-                 SQLITE_IDXTYPE_UNIQUE : SQLITE_IDXTYPE_DUPKEY, O);
+                 SQLITE_IDXTYPE_UNIQUE : SQLITE_IDXTYPE_DUPKEY, O, 0);
+}
+// datacopy with include syntax
+alter_table_add_index ::= ADD uniqueflag(U) INDEX nm(I) LP sortlist(X) RP
+                          INCLUDE with_opt2(O) with_inc(P) where_opt(W). {
+  comdb2AddIndex(pParse, &I, X, 0, W, 0, 0, SQLITE_SO_ASC, (U == OE_Abort) ?
+                 SQLITE_IDXTYPE_UNIQUE : SQLITE_IDXTYPE_DUPKEY, O, P);
 }
 alter_table_drop_index ::= DROP INDEX nm(I). {
   comdb2AlterDropIndex(pParse, &I);

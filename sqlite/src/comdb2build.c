@@ -3895,7 +3895,7 @@ static char *prepare_csc2(Parse *pParse, struct comdb2_ddl_context *ctx)
             }
 
             comdb2AddIndex(pParse, 0 /* Key name will be generated */,
-                           pList, 0, 0, 0, 0, 0, SQLITE_IDXTYPE_DUPKEY, 0);
+                           pList, 0, 0, 0, 0, 0, SQLITE_IDXTYPE_DUPKEY, 0, NULL);
             if (pParse->rc)
                 goto cleanup;
 
@@ -5147,7 +5147,7 @@ static void comdb2AddIndexInt(
     int sortOrder,      /* Sort order of primary key when pList==NULL */
     u8 idxType,         /* The index type */
     int withOpts,       /* WITH options (DATACOPY) */
-    ExprList *pdList   /* A list of columns in the partial datacopy */
+    ExprList *pdList    /* A list of columns in the partial datacopy */
 )
 {
     struct comdb2_ddl_context *ctx = pParse->comdb2_ddl_ctx;
@@ -5551,7 +5551,8 @@ void comdb2AddIndex(
     const char *zEnd,   /* End of WHERE clause token text */
     int sortOrder,      /* Sort order of primary key when pList==NULL */
     u8 idxType,         /* The index type */
-    int withOpts        /* WITH options (DATACOPY) */
+    int withOpts,       /* WITH options (DATACOPY) */
+    ExprList *pdList    /* A list of columns in the partial datacopy */
 )
 {
     if (comdb2IsPrepareOnly(pParse))
@@ -5589,7 +5590,7 @@ void comdb2AddIndex(
     }
 
     comdb2AddIndexInt(pParse, keyname, pList, onError, pPIWhere, zStart,
-                      zEnd, sortOrder, idxType, withOpts, NULL);
+                      zEnd, sortOrder, idxType, withOpts, pdList);
     if (pParse->rc)
         goto cleanup;
 

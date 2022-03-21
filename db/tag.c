@@ -1422,7 +1422,7 @@ void dump_tagged_buf(const char *table, const char *tag,
 }
 
 /* assume schema has been added */
-void add_tag_alias(const char *table, struct schema *s, char *name)
+void add_tag_alias(const char *table, struct schema *s, char *name, int table_nmembers)
 {
     struct dbtag *tag;
     struct schema *sc;
@@ -1437,7 +1437,7 @@ void add_tag_alias(const char *table, struct schema *s, char *name)
         listc_init(&tag->taglist, offsetof(struct schema, lnk));
         hash_add(gbl_tag_hash, tag);
     }
-    sc = clone_schema(s);
+    sc = clone_schema_index(s, table_nmembers);
     free(sc->tag);
     sc->tag = strdup(name);
     if (s->csctag == NULL)
@@ -1785,10 +1785,10 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt)
         if (rc == 0 && (strcasecmp(schema->tag, ".ONDISK") == 0 ||
                         strcasecmp(schema->tag, ".NEW..ONDISK") == 0)) {
             if (alt == 0) {
-                add_tag_alias(dbname, s, altname);
+                add_tag_alias(dbname, s, altname, schema->nmembers);
             } else {
                 snprintf(tmptagname, sizeof(tmptagname), ".NEW.%s", altname);
-                add_tag_alias(dbname, s, tmptagname);
+                add_tag_alias(dbname, s, tmptagname, schema->nmembers);
             }
             if (where) {
                 s->where = strdup(where);
@@ -6016,7 +6016,8 @@ void backout_schemas(char *tblname)
     unlock_taglock();
 }
 
-struct schema *clone_schema(struct schema *from)
+// table_nmembers is -1 if cloning table schema, else the number of members in the table if cloning index schema
+struct schema *clone_schema_index(struct schema *from, int table_nmembers)
 {
     int i;
 
@@ -6046,7 +6047,7 @@ struct schema *clone_schema(struct schema *from)
 
     for (i = 0; i < from->nix; i++) {
         if (from->ix && from->ix[i])
-            sc->ix[i] = clone_schema(from->ix[i]);
+            sc->ix[i] = clone_schema_index(from->ix[i], from->nmembers);
     }
 
     sc->ixnum = from->ixnum;
@@ -6056,10 +6057,6 @@ struct schema *clone_schema(struct schema *from)
     if (from->csctag)
         sc->csctag = strdup(from->csctag);
 
-    if (from->datacopy) {
-        sc->datacopy = malloc(from->nmembers * sizeof(int));
-        memcpy(sc->datacopy, from->datacopy, from->nmembers * sizeof(int));
-    }
     if (from->partial_datacopy) {
         sc->partial_datacopy = calloc(1, sizeof(struct schema));
         sc->partial_datacopy->nmembers = from->partial_datacopy->nmembers;
@@ -6067,8 +6064,18 @@ struct schema *clone_schema(struct schema *from)
         for (i = 0; i < sc->partial_datacopy->nmembers; i++) {
             sc->partial_datacopy->member[i].name = strdup(from->partial_datacopy->member[i].name);
         }
+        table_nmembers = sc->partial_datacopy->nmembers; // update number of members in datacopy
+    } 
+    if (from->datacopy) {
+        assert(table_nmembers != -1);
+        sc->datacopy = malloc(table_nmembers * sizeof(int));
+        memcpy(sc->datacopy, from->datacopy, table_nmembers * sizeof(int));
     }
     return sc;
+}
+
+struct schema *clone_schema(struct schema *from) {
+    return clone_schema_index(from, -1);
 }
 
 /* note: threads are quiesced before this is called - no locks */

@@ -1555,6 +1555,7 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt,
     struct schema *s;
     struct schema *p;
     struct partial_datacopy *pd;
+    int odh, datacopy_odh;
 
     /* keys not reqd for ver temp table; just ondisk tag */
     if (strncasecmp(dbname, gbl_ver_temp_table,
@@ -1590,6 +1591,16 @@ static int create_key_schema(dbtable *db, struct schema *schema, int alt,
 
         if (dyns_is_idx_partial_datacopy(ix)) {
             s->flags |= SCHEMA_PARTIALDATACOPY;
+
+            get_db_odh_tran(db, &odh, NULL);
+            get_db_datacopy_odh_tran(db, &datacopy_odh, NULL);
+
+            if (odh == 0 || datacopy_odh == 0) {
+                sc_client_error(db->iq->sc, "must enable odh and datacopy odh to use partial datacopy.");
+                rc = 1;
+                goto errout;
+            }
+
             rc = dyns_get_idx_partial_datacopy(ix, &pd);
             if (rc == 0 && pd) {
                 p = s->partial_datacopy = calloc(1, sizeof(struct schema));

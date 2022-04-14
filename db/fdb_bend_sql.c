@@ -176,7 +176,7 @@ int fdb_svc_alter_schema(struct sqlclntstate *clnt, sqlite3_stmt *stmt,
         return 0;
     }
 
-    /* we got a non datacopy index, export it as covered index */
+    /* we got a non full datacopy index, export it as covered index */
 
     /* get the sql create */
     pMem = &upr->aMem[4];

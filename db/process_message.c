@@ -4950,7 +4950,8 @@ clipper_usage:
         logmsg(LOGMSG_USER, "Cleared %d fingerprints\n", fpcount);
     } else if (tokcmp(tok, ltok, "clear_query_plans") == 0) {
         int queries_count, plans_count;
-        clear_query_plans(&queries_count, &plans_count);
+        clear_query_plans(&queries_count, &plans_count, 0);
+        clear_query_plans(NULL, NULL, 1);
         logmsg(LOGMSG_USER, "Cleared %d queries with a total of %d plans\n", queries_count, plans_count);
     } else if (tokcmp(tok, ltok, "get_verify_thdpool_status") == 0) {
         if (gbl_verify_thdpool)

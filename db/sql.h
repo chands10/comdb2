@@ -1361,7 +1361,7 @@ struct query_plan_item {
     double total_cost_per_row;
     int nexecutions;
 };
-void clear_query_plans(int *queries, int *plans);
+void clear_query_plans(int *queries, int *plans, int to_add);
 void add_query_plan(const struct client_query_stats *query_stats, int rows, const char *query);
 
 /* Connection tracking */

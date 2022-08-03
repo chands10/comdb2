@@ -2052,6 +2052,9 @@ int bdb_get_table_parameter_tran(const char *table, const char *parameter,
                                  char **value, tran_type *tran);
 int bdb_set_table_parameter(void *parent_tran, const char *table,
                             const char *parameter, const char *value);
+int bdb_get_query_plan_cson(char **value, int *len);
+int bdb_set_query_plan_cson(const char *value, int len);
+int bdb_del_query_plan_cson();
 
 int bdb_disable_page_scan_for_table(bdb_state_type *bdb_state);
 int bdb_enable_page_scan_for_table(bdb_state_type *bdb_state);

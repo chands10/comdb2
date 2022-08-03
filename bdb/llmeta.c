@@ -170,6 +170,7 @@ typedef enum {
     LLMETA_SEQUENCE_VALUE = 53,
     LLMETA_LUA_SFUNC_FLAG = 54,
     LLMETA_NEWSC_REDO_GENID = 55, /* 55 + TABLENAME + GENID -> MAX-LSN */
+    LLMETA_QUERY_PLAN_COSTS = 56, /* stores a map of queries to query plans to average costs */
 } llmetakey_t;
 
 struct llmeta_file_type_key {
@@ -10677,3 +10678,254 @@ int bdb_del_view(tran_type *t, const char *view_name)
     }
     return rc;
 }
+
+/* return into value
+ * NB: caller needs to free that memory area
+ */
+int bdb_get_query_plan_cson(char **value, int *len)
+{
+    return llmeta_get_blob(LLMETA_QUERY_PLAN_COSTS, NULL, NULL, value, len);
+}
+
+int bdb_set_query_plan_cson(const char *value, int len)
+{
+    return llmeta_set_blob(NULL, LLMETA_QUERY_PLAN_COSTS, NULL, value, len);
+}
+
+int bdb_del_query_plan_cson()
+{
+    return llmeta_del_blob(NULL, LLMETA_QUERY_PLAN_COSTS, NULL);
+}
+
+/* return into value
+ * NB: caller needs to free that memory area
+ */
+/*
+int bdb_get_query_plan_stats(const char *query, const char *query_plan, double *total_cost_per_row, int *nexecutions)
+{
+#ifdef DEBUG_LLMETA
+    fprintf(stderr, "%s()\n", __func__);
+#endif
+    if (llmeta_bdb_state == NULL)
+        return 1;
+
+    char *blob = NULL;
+    int len;
+    int rc = bdb_get_query_plan_cson(&blob, &len);
+    assert(rc == 0 || (rc == 1 && blob == NULL));
+
+    if (blob == NULL)
+        return 1;
+
+    cson_value *rootV = NULL;
+    cson_object *rootObj = NULL;
+
+    rc = cson_parse_string(&rootV, blob, len);
+    // The NULL arguments hold optional information for/about
+    // the parse results. These can be used to set certain
+    // parsing options and get more detailed error information
+    // if parsing fails.
+
+    if (0 != rc) {
+       logmsg(LOGMSG_ERROR, "bdb_get_query_plan:Error code %d (%s)!\n", rc,
+               cson_rc_string(rc));
+        free(blob);
+        return 1;
+    }
+
+    assert(cson_value_is_object(rootV));
+    rootObj = cson_value_get_object(rootV);
+    assert(rootObj != NULL);
+
+    cson_value *query_planV = cson_object_get(rootObj, query);
+    cson_object *query_planObj = NULL;
+    if (query_planV == NULL) {
+#ifdef DEBUG_LLMETA
+        printf("query plan %s not found\n", query_plan);
+#endif
+        rc = 1;
+        goto out;
+    }
+
+    assert(cson_value_is_object(query_planV));
+    query_planObj = cson_value_get_object(query_planV);
+    assert(query_planObj != NULL);
+
+    cson_value *statsV = cson_object_get(query_planObj, query_plan);
+    cson_object *statsObj = NULL;
+    if (statsV == NULL) {
+#ifdef DEBUG_LLMETA
+        printf("stats for query plan %s not found\n", query_plan);
+#endif
+        rc = 1;
+        goto out;
+    }
+
+    assert(cson_value_is_object(statsV));
+    statsObj = cson_value_get_object(statsV);
+    assert(statsObj != NULL);
+
+    cson_value *total_cost_per_rowV = cson_object_get(statsObj, "total_cost_per_row");
+    if (total_cost_per_rowV == NULL) {
+#ifdef DEBUG_LLMETA
+        printf("total cost per row for query plan %s not found\n", query_plan);
+#endif
+        rc = 1;
+        goto out;
+    }
+
+    *total_cost_per_row = cson_value_get_double(total_cost_per_rowV);
+
+    cson_value *nexecutionsV = cson_object_get(statsObj, "nexecutions");
+    if (nexecutionsV == NULL) {
+#ifdef DEBUG_LLMETA
+        printf("number of executions for query plan %s not found\n", query_plan);
+#endif
+        rc = 1;
+        goto out;
+    }
+
+    *nexecutions = cson_value_get_integer(nexecutionsV);
+
+#ifdef DEBUG_LLMETA
+    fprintf(stdout, "%f\n", *total_cost_per_row);
+    fprintf(stdout, "%d\n", *nexecutions);
+    { // print root object
+        cson_object_iterator iter;
+        rc = cson_object_iter_init(rootObj, &iter);
+        if (0 != rc) {
+            printf("Error code %d (%s)!\n", rc, cson_rc_string(rc));
+            rc = 1;
+            goto out;
+        }
+
+        cson_kvp *kvp; // key/value pair
+        while ((kvp = cson_object_iter_next(&iter))) {
+            cson_string const *ckey = cson_kvp_key(kvp);
+            cson_value *v = cson_kvp_value(kvp);
+            // Here we just print out: KEY=VALUE
+            fprintf(stdout, "%s", cson_string_cstr(ckey));
+            putchar('=');
+            cson_output_FILE(v, stdout);
+        }
+        // cson_object_iterator objects own no memory and need not be cleaned
+        // up.
+        // Iteration results are undefined if the object being iterated over is
+        // modified (keys added/removed) while iterating.
+    }
+#endif
+
+out:
+    cson_value_free(rootV);
+    free(blob);
+    return rc;
+}
+
+int bdb_set_query_plan_stats(const char *query, const char *query_plan, double total_cost_per_row, int nexecutions)
+{
+#ifdef DEBUG_LLMETA
+    fprintf(stderr, "%s()\n", __func__);
+#endif
+    char *blob = NULL;
+    int len;
+    int rc = bdb_get_query_plan_cson(&blob, &len);
+    assert(rc == 0 || (rc == 1 && blob == NULL));
+
+    cson_value *rootV = NULL;
+    cson_object *rootObj = NULL;
+
+    if (blob != NULL) {
+        rc = cson_parse_string(&rootV, blob, len);
+        // The NULL arguments hold optional information for/about
+        // the parse results. These can be used to set certain
+        // parsing options and get more detailed error information
+        // if parsing fails.
+
+        if (0 != rc) {
+           logmsg(LOGMSG_ERROR, "bdb_set_query_plan_stats: Error code %d (%s)!\n", rc,
+                   cson_rc_string(rc));
+            return 1;
+        }
+
+        assert(cson_value_is_object(rootV));
+        rootObj = cson_value_get_object(rootV);
+        assert(rootObj != NULL);
+    } else {
+        // Create a rootV object:
+        rootV = cson_value_new_object();
+        rootObj = cson_value_get_object(rootV);
+    }
+
+    cson_value *query_planV = cson_object_get(rootObj, query);
+    cson_object *query_planObj = NULL;
+    if (query_planV == NULL) {
+        // create a query_planV object:
+        query_planV = cson_value_new_object();
+        query_planObj = cson_value_get_object(query_planV);
+    } else {
+        assert(cson_value_is_object(query_planV));
+        query_planObj = cson_value_get_object(query_planV);
+        assert(query_planObj != NULL);
+    }
+
+    cson_value *statsV = cson_object_get(query_planObj, query_plan);
+    cson_object *statsObj = NULL;
+    if (statsV == NULL) {
+        // create a statsV object:
+        statsV = cson_value_new_object();
+        statsObj = cson_value_get_object(statsV);
+    } else {
+        assert(cson_value_is_object(statsV));
+        statsObj = cson_value_get_object(statsV);
+        assert(statsObj != NULL);
+    }
+
+    // Add the values to table:
+    cson_object_set(statsObj, "total_cost_per_row", cson_value_new_double(total_cost_per_row));
+    cson_object_set(statsObj, "nexecutions", cson_value_new_integer(nexecutions));
+    cson_object_set(query_planObj, query_plan, statsV);
+    cson_object_set(rootObj, query, query_planV);
+
+#ifdef DEBUG_LLMETA
+    { // print root object
+        cson_object_iterator iter;
+        rc = cson_object_iter_init(rootObj, &iter);
+        if (0 != rc) {
+            printf("Error code %d (%s)!\n", rc, cson_rc_string(rc));
+            return 1;
+        }
+
+        cson_kvp *kvp; // key/value pair
+        while ((kvp = cson_object_iter_next(&iter))) {
+            cson_string const *ckey = cson_kvp_key(kvp);
+            cson_value *v = cson_kvp_value(kvp);
+            // Here we just print out: KEY=VALUE
+            fprintf(stdout, "%s", cson_string_cstr(ckey));
+            putchar('=');
+            cson_output_FILE(v, stdout);
+        }
+        // cson_object_iterator objects own no memory and need not be cleaned
+        // up.
+        // Iteration results are undefined if the object being iterated over is
+        // modified (keys added/removed) while iterating.
+    }
+#endif
+
+    cson_buffer buf;
+    rc = cson_output_buffer(rootV, &buf); // write obj to buffer
+    if (0 != rc) {
+        logmsg(LOGMSG_ERROR, "cson_output_buffer returned rc %d", rc);
+    } else if (buf.used > 2) {
+        // JSON data is the first (buf.used) bytes of (buf.mem).
+        bdb_set_query_plan_cson((const char *)buf.mem, buf.used); // save to llmeta blob
+    } else {
+        fprintf(stdout, "Error: Buffer not long enough\n");
+        return 1;
+    }
+
+    // Clean up
+    cson_value_free(rootV);
+    free(blob);
+    return rc;
+}
+*/

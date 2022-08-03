@@ -1351,6 +1351,19 @@ long long run_sql_return_ll(const char *query, struct errstat *err);
 long long run_sql_thd_return_ll(const char *query, struct sql_thread *thd,
                                 struct errstat *err);
 
+struct query_item {
+    char *query;
+    hash_t *query_plan_hash;
+    int alert_once_query; // init to 1
+};
+struct query_plan_item {
+    char *plan;
+    double total_cost_per_row;
+    int nexecutions;
+};
+void clear_query_plans(int *queries, int *plans);
+void add_query_plan(const struct client_query_stats *query_stats, int rows, const char *query);
+
 /* Connection tracking */
 int gather_connection_info(struct connection_info **info, int *num_connections);
 void free_connection_info(struct connection_info *info, int num_connections);

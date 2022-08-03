@@ -143,6 +143,7 @@ extern int gbl_old_column_names;
 extern hash_t *gbl_fingerprint_hash;
 extern pthread_mutex_t gbl_fingerprint_hash_mu;
 extern int gbl_alternate_normalize;
+extern int gbl_query_plans;
 
 /* Once and for all:
 
@@ -1207,6 +1208,7 @@ static void sql_statement_done(struct sql_thread *thd, struct reqlogger *logger,
     int64_t time;
     int64_t prepTime;
     int64_t rows;
+    const char *query = NULL;
 
     if (gbl_fingerprint_queries) {
         if (h->sql_ref) {
@@ -1226,11 +1228,13 @@ static void sql_statement_done(struct sql_thread *thd, struct reqlogger *logger,
                                 cost, time, prepTime, rows, logger,
                                 fingerprint);
                 have_fingerprint = 1;
+                query = clnt->work.zOrigNormSql;
             } else if (clnt->work.zNormSql &&
                        sqlite3_is_success(clnt->prep_rc)) {
                 add_fingerprint(clnt, stmt, string_ref_cstr(h->sql_ref), clnt->work.zNormSql, cost,
                                 time, prepTime, rows, logger, fingerprint);
                 have_fingerprint = 1;
+                query = clnt->work.zNormSql;
             } else {
                 reqlog_reset_fingerprint(logger, FINGERPRINTSZ);
             }
@@ -1239,7 +1243,7 @@ static void sql_statement_done(struct sql_thread *thd, struct reqlogger *logger,
         }
     }
 
-    if (clnt->query_stats == NULL) {
+    if (1 || clnt->query_stats == NULL) {
         record_query_cost(thd, clnt);
         reqlog_set_path(logger, clnt->query_stats);
     }
@@ -1252,6 +1256,10 @@ static void sql_statement_done(struct sql_thread *thd, struct reqlogger *logger,
     reqlog_end_request(logger, stmt_rc, __func__, __LINE__);
     if (clnt->osql.sock_started == 0)
         comdb2uuid_clear(clnt->osql.uuid);
+
+    if (gbl_query_plans && query) {
+        add_query_plan(clnt->query_stats, clnt->nrows, query);
+    }
 
     if (have_fingerprint) {
         /*

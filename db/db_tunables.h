@@ -1307,6 +1307,15 @@ REGISTER_TUNABLE("debug.omit_zap_on_rebuild",
                  " (Default: 0)", TUNABLE_BOOLEAN,
                  &gbl_debug_omit_zap_on_rebuild, INTERNAL, NULL, NULL, NULL,
                  NULL);
+REGISTER_TUNABLE("debug.print_query_plans",
+                 "Print query plan hash table every time after running a query. (Default: 0)", TUNABLE_BOOLEAN,
+                 &gbl_debug_print_query_plans, INTERNAL, NULL, NULL, NULL,
+                 NULL);
+REGISTER_TUNABLE("query_plan_percentage",
+                 "Alarm if the average cost per row of current query plan is n percent above the cost for different query plan."
+                 " (Default: 50)", TUNABLE_DOUBLE,
+                 &gbl_query_plan_percentage, 0, NULL, NULL, NULL,
+                 NULL);
 REGISTER_TUNABLE("bdboslog", NULL, TUNABLE_INTEGER, &gbl_namemangle_loglevel,
                  READONLY, NULL, NULL, NULL, NULL);
 REGISTER_TUNABLE("deadlock_rep_retry_max", NULL, TUNABLE_INTEGER,

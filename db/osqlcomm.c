@@ -2860,6 +2860,9 @@ static void net_osql_master_check(void *hndl, void *uptr, char *fromnode,
 static void net_osql_master_checked(void *hndl, void *uptr, char *fromnode,
                                     int usertype, void *dtap, int dtalen,
                                     uint8_t is_tcp);
+static void net_osql_save_query_plan(void *hndl, void *uptr, char *fromnode,
+                                     int usertype, void *dtap, int dtalen,
+                                     uint8_t is_tcp);
 static void net_sorese_signal(void *hndl, void *uptr, char *fromnode,
                               int usertype, void *dtap, int dtalen,
                               uint8_t is_tcp);
@@ -3016,6 +3019,8 @@ int osql_comm_init(struct dbenv *dbenv)
                          "osql_master_check_uuid", net_osql_master_check);
     net_register_handler(tmp->handle_sibling, NET_OSQL_MASTER_CHECKED_UUID,
                          "osql_master_checked_uuid", net_osql_master_checked);
+    net_register_handler(tmp->handle_sibling, NET_OSQL_SAVE_QUERY_PLAN,
+                         "osql_save_query_plan", net_osql_save_query_plan);
 
     /* this guy will terminate pending requests */
     net_register_hostdown(tmp->handle_sibling, net_osql_nodedwn);
@@ -5625,6 +5630,105 @@ static void net_serial_req(void *hndl, void *uptr, char *fromhost, int usertype,
 
     if (rc)
         stats[OSQL_SERIAL_REQ].rcv_failed++;
+}
+
+static void net_osql_save_query_plan(void *hndl, void *uptr, char *fromhost,
+                                     int usertype, void *dtap, int dtalen,
+                                     uint8_t is_tcp)
+{
+    uint8_t *p_buf = dtap;
+    uint8_t *p_buf_end = p_buf + dtalen;
+    osql_poke_t poke = {0};
+    osql_poke_uuid_t pokeuuid;
+    int found = 0;
+    int rc = 0;
+
+    uuid_t uuid;
+    unsigned long long rqid = OSQL_RQID_USE_UUID;
+    int reply_type;
+
+    comdb2uuid_clear(uuid);
+
+    if (db_is_exiting()) {
+        /* don't do anything, we're going down */
+        return;
+    }
+
+    if (osql_nettype_is_uuid(usertype)) {
+        if (!osqlcomm_poke_uuid_type_get(&pokeuuid, p_buf, p_buf_end)) {
+            logmsg(LOGMSG_ERROR, "%s: can't unpack %d request\n", __func__,
+                    usertype);
+            return;
+        }
+        comdb2uuidcpy(uuid, pokeuuid.uuid);
+    } else {
+        if (!(osqlcomm_poke_type_get(&poke, p_buf, p_buf_end))) {
+            logmsg(LOGMSG_ERROR, "%s: can't unpack %d request\n", __func__,
+                    usertype);
+            return;
+        }
+        rqid = poke.rqid;
+    }
+
+    int rows_affected = -1;
+    found = osql_repository_session_exists(rqid, uuid, &rows_affected);
+
+    if (found) {
+        uint8_t buf[OSQLCOMM_EXISTS_RPL_TYPE_LEN];
+        uint8_t bufuuid[OSQLCOMM_EXISTS_UUID_RPL_TYPE_LEN];
+        uint8_t *p_buf;
+
+        if (rqid == OSQL_RQID_USE_UUID) {
+            p_buf = bufuuid;
+            p_buf_end = p_buf + OSQLCOMM_EXISTS_UUID_RPL_TYPE_LEN;
+            osql_exists_uuid_rpl_t rpl = {{0}};
+
+            rpl.hd.type = OSQL_EXISTS;
+            comdb2uuidcpy(rpl.hd.uuid, uuid);
+            rpl.dt.status = rows_affected;
+            rpl.dt.timestamp = comdb2_time_epoch();
+
+            if (!osqlcomm_exists_uuid_rpl_type_put(&rpl, p_buf, p_buf_end))
+                abort();
+            reply_type = NET_OSQL_MASTER_CHECKED_UUID;
+
+            if ((rc = offload_net_send(fromhost, reply_type, bufuuid,
+                                       sizeof(bufuuid), 1, NULL, 0))) {
+                logmsg(LOGMSG_ERROR, "%s: error writting record to master in "
+                                "offload mode rc=%d!\n",
+                        __func__, rc);
+            }
+        } else {
+            p_buf = buf;
+            p_buf_end = p_buf + OSQLCOMM_EXISTS_RPL_TYPE_LEN;
+
+            /* send a done with an error, lost request */
+            osql_exists_rpl_t rpl = {{0}};
+
+            rpl.hd.type = OSQL_EXISTS;
+            rpl.hd.sid = rqid;
+            rpl.dt.status = rows_affected;
+            rpl.dt.timestamp = comdb2_time_epoch();
+
+            if (!osqlcomm_exists_rpl_type_put(&rpl, p_buf, p_buf_end))
+                abort();
+
+            reply_type = NET_OSQL_MASTER_CHECKED;
+
+            if ((rc = offload_net_send(fromhost, reply_type, buf, sizeof(buf),
+                                       1, NULL, 0))) {
+                logmsg(LOGMSG_ERROR, "%s: error writting record to master in "
+                                "offload mode rc=%d!\n",
+                        __func__, rc);
+            }
+        }
+
+    } else {
+        uuidstr_t us;
+        logmsg(LOGMSG_ERROR,
+               "Missing SORESE sql session %llx %s on %s from %d\n", poke.rqid,
+               comdb2uuidstr(uuid, us), gbl_myhostname, poke.from);
+    }
 }
 
 /**************************** this belongs between comm and blockproc/ put it

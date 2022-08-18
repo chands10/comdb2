@@ -19,7 +19,7 @@
 #include "bdb_api.h"
 
 hash_t *gbl_query_plan_hash = NULL;
-hash_t *gbl_query_plan_hash_to_add = NULL;
+hash_t *gbl_query_plan_hash_to_add = NULL; // items that need to be added to llmeta
 pthread_mutex_t gbl_query_plan_hash_mu = PTHREAD_MUTEX_INITIALIZER;
 int gbl_query_plan_max_queries = 1000;
 extern int gbl_debug_print_query_plans;
@@ -95,7 +95,9 @@ static void add_query_plan_int_int(const char *query, const char *query_plan, ha
 }
 
 /* if nexecutions is present then we are updating from llmeta, else nexecutions is just incremented by 1 in add_query_plan_inner_inner
- * Assume already have lock on hash*/
+ * Assume already have lock on hash
+ * to_add is 1 when using gbl_query_plan_hash_to_add
+*/
 static void add_query_plan_int(const char *query, const char *query_plan, double current_cost_per_row, const int *nexecutions, int to_add) {
     if (gbl_query_plan_hash == NULL) {
         bdb_del_query_plan_cson(); // for testing

@@ -1323,16 +1323,10 @@ REGISTER_TUNABLE(
     "Alarm if the average cost per row of current query plan is n percent above the cost for different query plan."
     " (Default: 50)",
     TUNABLE_DOUBLE, &gbl_query_plan_percentage, 0, NULL, NULL, NULL, NULL);
-REGISTER_TUNABLE("max_query_query_plans",
-                 "Maximum number of queries to be placed into the query plan "
-                 "hash (Default: 1000)",
-                 TUNABLE_INTEGER, &gbl_query_plan_max_queries, 0, NULL,
-                 NULL, NULL, NULL);
 REGISTER_TUNABLE("max_plan_query_plans",
                  "Maximum number of plans to be placed into the query plan "
-                 "hash for each query (Default: 20)",
-                 TUNABLE_INTEGER, &gbl_query_plan_max_plans, 0, NULL,
-                 NULL, NULL, NULL);
+                 "hash for each fingerprint (Default: 20)",
+                 TUNABLE_INTEGER, &gbl_query_plan_max_plans, 0, NULL, NULL, NULL, NULL);
 REGISTER_TUNABLE("bdboslog", NULL, TUNABLE_INTEGER, &gbl_namemangle_loglevel,
                  READONLY, NULL, NULL, NULL, NULL);
 REGISTER_TUNABLE("deadlock_rep_retry_max", NULL, TUNABLE_INTEGER,

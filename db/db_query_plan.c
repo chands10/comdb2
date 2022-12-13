@@ -23,12 +23,13 @@ extern double gbl_query_plan_percentage;
 extern hash_t *gbl_fingerprint_hash;
 extern pthread_mutex_t gbl_fingerprint_hash_mu;
 
-static char *form_query_plan(const struct client_query_stats *query_stats)
+static char *form_query_plan(const struct client_query_stats *query_stats, int64_t *nrows)
 {
     struct strbuf *query_plan_buf;
     const struct client_query_path_component *c;
     char *query_plan;
 
+    *nrows = 0;
     if (query_stats->n_components == 0) {
         return NULL;
     }
@@ -40,6 +41,7 @@ static char *form_query_plan(const struct client_query_stats *query_stats)
         }
         c = &query_stats->path_stats[i];
         strbuf_appendf(query_plan_buf, "table %s index %d", c->table, c->ix);
+        *nrows += c->nnext;
     }
 
     query_plan = strdup((char *)strbuf_buf(query_plan_buf));
@@ -99,10 +101,10 @@ static void add_query_plan_int(struct fingerprint_track *t, const char *query_pl
 
 // assumed to have fingerprint lock
 // assume t->query_plan_hash is not NULL
-void add_query_plan(const struct client_query_stats *query_stats, int64_t cost, int64_t nrows,
-                    struct fingerprint_track *t)
+void add_query_plan(const struct client_query_stats *query_stats, int64_t cost, struct fingerprint_track *t)
 {
-    char *query_plan = form_query_plan(query_stats);
+    int64_t nrows;
+    char *query_plan = form_query_plan(query_stats, &nrows);
     if (!query_plan || nrows <= 0) { // can't calculate cost per row if 0 rows
         return;
     }

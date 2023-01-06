@@ -2341,6 +2341,10 @@ static void lua_end_step(struct sqlclntstate *clnt, SP sp,
             unsigned char fingerprint[FINGERPRINTSZ];
             add_fingerprint(clnt, pStmt, sqlite3_sql(pStmt), zNormSql, cost,
                             timeMs, prepMs, pVdbe->luaRows, NULL, fingerprint, 1); // TODO: Make work for query plans
+            char zFingerprint1[FINGERPRINTSZ*2+1];
+            memset(zFingerprint1, 0, sizeof(zFingerprint1));
+            util_tohex(zFingerprint1, (char *)fingerprint, FINGERPRINTSZ);
+            printf("is_lua 1 query %s fp %s\n", zNormSql, zFingerprint1);
             if (clnt->rawnodestats)
                 add_fingerprint_to_rawstats(clnt->rawnodestats, fingerprint, cost, pVdbe->luaRows, timeMs);
 

@@ -1229,11 +1229,13 @@ static void sql_statement_done(struct sql_thread *thd, struct reqlogger *logger,
                 rows = clnt->nrows;
             }
             if (clnt->work.zOrigNormSql) { /* NOTE: Not subject to prepare. */
+                printf("is_lua %d query %s\n", is_lua, clnt->work.zOrigNormSql);
                 add_fingerprint(clnt, stmt, string_ref_cstr(h->sql_ref), clnt->work.zOrigNormSql, cost, time, prepTime,
                                 rows, logger, fingerprint, is_lua);
                 have_fingerprint = 1;
             } else if (clnt->work.zNormSql &&
                        sqlite3_is_success(clnt->prep_rc)) {
+                printf("is_lua %d query %s\n", is_lua, clnt->work.zNormSql);
                 add_fingerprint(clnt, stmt, string_ref_cstr(h->sql_ref), clnt->work.zNormSql, cost, time, prepTime,
                                 rows, logger, fingerprint, is_lua);
                 have_fingerprint = 1;
@@ -2977,6 +2979,11 @@ static struct fingerprint_track *prepare_fingerprint(struct sqlclntstate *clnt,
 
     /* Store for virtual table use. */
     memcpy(clnt->work.aFingerprint, fingerprint, FINGERPRINTSZ);
+    char zFingerprint1[FINGERPRINTSZ*2+1];
+    memset(zFingerprint1, 0, sizeof(zFingerprint1));
+    util_tohex(zFingerprint1, (char *)clnt->work.aFingerprint, FINGERPRINTSZ);
+    printf("Query: %s, Fingerprint in prepare_fingerprint: %s\n", zNormSql, zFingerprint1);
+
 
     Pthread_mutex_lock(&gbl_fingerprint_hash_mu);
     if (gbl_fingerprint_hash) {
@@ -3830,6 +3837,11 @@ static void handle_stored_proc(struct sqlthdstate *thd,
 
         calc_fingerprint(clnt->work.zOrigNormSql, &nOrigNormSql,
                             clnt->work.aFingerprint);
+        char zFingerprint1[FINGERPRINTSZ*2+1];
+        memset(zFingerprint1, 0, sizeof(zFingerprint1));
+        util_tohex(zFingerprint1, (char *)clnt->work.aFingerprint, FINGERPRINTSZ);
+        printf("Query: %s, Fingerprint in handle_stored_proc: %s\n", clnt->work.zOrigNormSql, zFingerprint1);
+
     }
 
     memset(&clnt->spcost, 0, sizeof(struct sql_hist_cost));

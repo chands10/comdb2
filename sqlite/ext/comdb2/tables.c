@@ -193,6 +193,8 @@ int comdb2SystblInit(
   if (rc == SQLITE_OK)
     rc = systblFingerprintsInit(db);
   if (rc == SQLITE_OK)
+    rc = systblSampleQueriesInit(db);
+  if (rc == SQLITE_OK)
     rc = systblQueryPlansInit(db);
   if (rc == SQLITE_OK)
     rc = systblScStatusInit(db);

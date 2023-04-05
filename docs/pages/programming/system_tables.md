@@ -33,6 +33,21 @@ Lists all available APPSOCK handlers.
 * `usage` - Usage information
 * `exec_count` - Execution count
 
+## comdb2_auto_analyze_tables
+
+Lists auto analyze info about each table.
+
+    comdb2_auto_analyze_tables(tablename, counter, saved, new, percent_of_tbl, last_run_time, needs_analyze, needs_analyze_time)
+
+* `tablename` - Name of the table
+* `counter` - Current number of operations
+* `saved` - Saved number of operations
+* `new` - Difference between `counter` and `saved`
+* `percent_of_tbl` - Percent of table that has been modified since last analyze
+* `last_run_time` - Last run time of analyze
+* `needs_analyze` - Whether a table needs analyze or not (only in request mode)
+* `needs_analyze_time` - The first time since it was last run that it was determined that a table needs to be analyzed
+
 ## comdb2_blkseq
 
 Information about BLKSEQ stored in the database. (TODO: Explain BLKSEQ)

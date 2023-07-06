@@ -27,12 +27,14 @@
 #include <str0.h>
 
 #include <newsql.h>
+#include <typessql.h>
 
 void free_original_normalized_sql(struct sqlclntstate *);
 
 extern int gbl_allow_incoherent_sql;
 extern int gbl_disable_skip_rows;
 extern int gbl_return_long_column_names;
+extern int gbl_typessql;
 
 struct newsql_appdata {
     NEWSQL_APPDATA_COMMON
@@ -344,8 +346,9 @@ static int get_col_type(struct sqlclntstate *clnt, sqlite3_stmt *stmt, int col)
     struct newsql_appdata *appdata = clnt->appdata;
     CDB2SQLQUERY *sql_query = appdata->sqlquery;
     int type = -1;
+    int ncols = column_count(clnt, stmt);
     if (sql_query->n_types) {
-        type = sql_query->types[col];
+        type = sql_query->types[col >= ncols ? col - ncols : col];
         if (type == SQLITE_DECIMAL) {
             type = SQLITE_TEXT;
         }
@@ -381,7 +384,8 @@ static int newsql_columns(struct sqlclntstate *clnt, sqlite3_stmt *stmt)
         cols[i].value.data = (uint8_t *)name;
         cols[i].value.len = len;
         cols[i].has_type = 1;
-        cols[i].type = appdata->col_info.type[i] = get_col_type(clnt, stmt, i);
+        cols[i].type = appdata->col_info.type[i] = get_col_type(clnt, stmt, clnt->plugin.next_row == typessql_next_row ? i + ncols : i);
+        // printf("Index %d name %s type %d null %d\n", i, name, cols[i].type, is_column_type_null(clnt, stmt, i));
     }
     CDB2SQLRESPONSE resp = CDB2__SQLRESPONSE__INIT;
     resp.response_type = RESPONSE_TYPE__COLUMN_NAMES;

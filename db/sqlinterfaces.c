@@ -111,6 +111,8 @@
 #include "osqlsqlsocket.h"
 #include <net_appsock.h>
 
+#include <typessql.h>
+
 /*
 ** WARNING: These enumeration values are not arbitrary.  They represent
 **          indexes into the array of meta-command names contained in
@@ -144,6 +146,7 @@ extern int gbl_old_column_names;
 extern hash_t *gbl_fingerprint_hash;
 extern pthread_mutex_t gbl_fingerprint_hash_mu;
 extern int gbl_alternate_normalize;
+extern int gbl_typessql;
 
 /* Once and for all:
 
@@ -973,11 +976,12 @@ int get_sqlite3_column_type(struct sqlclntstate *clnt, sqlite3_stmt *stmt,
                             int col, int skip_decltype)
 {
     int type = SQLITE_NULL;
+    int ncols = column_count(clnt, stmt);
 
     if (sqlite3_can_get_column_type_and_data(clnt, stmt)) {
         type = column_type(clnt, stmt, col);
         if (type == SQLITE_NULL && !skip_decltype) {
-            type = typestr_to_type(sqlite3_column_decltype(stmt, col));
+            type = typestr_to_type(sqlite3_column_decltype(stmt, col >= ncols ? col - ncols : col));
         }
         if (type == SQLITE_DECIMAL) {
             type = SQLITE_TEXT;
@@ -3848,6 +3852,11 @@ static void sqlite_done(struct sqlthdstate *thd, struct sqlclntstate *clnt,
         dohsql_end_distribute(clnt, thd->logger);
         distributed = 1;
     }
+    if (clnt->typessql_state) {
+        free_typessql_state(clnt);
+        clnt->typessql_state = NULL;
+        clnt_plugin_reset(clnt);
+    }
 
     sql_statement_done(thd->sqlthd, thd->logger, clnt, stmt, outrc);
 
@@ -4250,6 +4259,9 @@ static int execute_sql_query(struct sqlthdstate *thd, struct sqlclntstate *clnt)
 #ifdef DEBUG
     logmsg(LOGMSG_DEBUG, "execute_sql_query: '%.30s'\n", clnt->sql);
 #endif
+
+    if (gbl_typessql)
+        _master_clnt_set(clnt, &clnt->plugin);
 
     /* access control */
     rc = check_sql_access(thd, clnt);
@@ -7080,6 +7092,7 @@ void update_col_info(struct sql_col_info *info, int ncols)
 void clnt_plugin_reset(struct sqlclntstate *clnt)
 {
     struct plugin_callbacks *backup = &clnt->backup;
+    clnt->adapter = clnt->adapter_backup; // need to call each function separately? Don't think so
 
     clnt->plugin.column_count = backup->column_count;
     clnt->plugin.next_row = backup->next_row;

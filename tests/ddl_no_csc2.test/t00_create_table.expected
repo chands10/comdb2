@@ -547,16 +547,16 @@ constraints
 [CREATE TABLE t6(b blob(-100))] failed with rc -3 Invalid type specified.
 (part='---------------------------------- PART #22 ----------------------------------')
 (tablename='t1', columnname='b', type='blob', size=5, sqltype='blob', varinlinesize=NULL, defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
-(tablename='t3', columnname='b', type='blob', size=6, sqltype='blob', varinlinesize='1', defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
-(tablename='t4', columnname='b', type='blob', size=105, sqltype='blob', varinlinesize='100', defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
+(tablename='t3', columnname='b', type='blob', size=6, sqltype='blob', varinlinesize=1, defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
+(tablename='t4', columnname='b', type='blob', size=105, sqltype='blob', varinlinesize=100, defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
 (tablename='t5', columnname='b', type='blob', size=5, sqltype='blob', varinlinesize=NULL, defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
 (part='---------------------------------- PART #23 ----------------------------------')
 [CREATE TABLE t4(b blob(0))] failed with rc -3 Table already exists
 [CREATE TABLE t5(b blob(-100))] failed with rc -3 Table already exists
 (part='---------------------------------- PART #24 ----------------------------------')
 (tablename='t1', columnname='b', type='blob', size=5, sqltype='blob', varinlinesize=NULL, defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
-(tablename='t3', columnname='b', type='blob', size=6, sqltype='blob', varinlinesize='1', defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
-(tablename='t4', columnname='b', type='blob', size=105, sqltype='blob', varinlinesize='100', defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
+(tablename='t3', columnname='b', type='blob', size=6, sqltype='blob', varinlinesize=1, defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
+(tablename='t4', columnname='b', type='blob', size=105, sqltype='blob', varinlinesize=100, defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
 (tablename='t5', columnname='b', type='blob', size=5, sqltype='blob', varinlinesize=NULL, defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
 (type='table', name='t1', tbl_name='t1', rootpage=4, sql='create table "t1"("b" blob);', csc2='schema
 	{
@@ -866,7 +866,7 @@ keys
 (tablename='t1', columnname='c1', type='cstring', size=3, sqltype='char(2)', varinlinesize=NULL, defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
 (tablename='t1', columnname='c2', type='cstring', size=2, sqltype='char(1)', varinlinesize=NULL, defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
 (tablename='t1', columnname='c3', type='cstring', size=3, sqltype='char(2)', varinlinesize=NULL, defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
-(tablename='t1', columnname='c4', type='vutf8', size=5, sqltype='varchar', varinlinesize='0', defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
+(tablename='t1', columnname='c4', type='vutf8', size=5, sqltype='varchar', varinlinesize=0, defaultvalue=NULL, dbload=NULL, isnullable='Y', lastsequence=NULL)
 (type='table', name='t1', tbl_name='t1', rootpage=4, sql='create table "t1"("c1" char(2), "c2" char(1), "c3" char(2), "c4" varchar);', csc2='schema
 	{
 		cstring c1[3] null = yes 

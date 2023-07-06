@@ -147,6 +147,7 @@ static char *_get_tzname(struct sqlclntstate *clnt, sqlite3_stmt *_)
 static void _master_clnt_set(struct sqlclntstate *clnt)
 {
     clnt->backup = clnt->plugin;
+    clnt->adapter_backup = clnt->adapter;
 
     clnt->plugin.column_count = fdb_push_column_count;
     clnt->plugin.column_type = fdb_push_column_type;

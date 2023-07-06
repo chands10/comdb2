@@ -319,6 +319,7 @@ void currange_free(CurRange *cr);
 
 struct stored_proc;
 struct lua_State;
+struct typessql;
 struct dohsql;
 struct dohsql_node;
 typedef struct fdb_push_connector fdb_push_connector_t;
@@ -645,6 +646,11 @@ struct sqlclntstate {
     void *appdata;
     struct plugin_callbacks plugin;
     struct plugin_callbacks backup; /* allow transient client state mutations */
+
+    /* typessql structs */
+    struct plugin_callbacks adapter;
+    struct plugin_callbacks adapter_backup; // TODO: finish this
+    struct typessql *typessql_state;
 
     /* bplog write plugin */
     int (*begin)(struct sqlclntstate *clnt, int retries, int keep_id);

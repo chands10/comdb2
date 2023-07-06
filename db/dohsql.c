@@ -1074,6 +1074,7 @@ static void _master_clnt_set(struct sqlclntstate *clnt)
     assert(clnt->conns);
 
     clnt->backup = clnt->plugin;
+    clnt->adapter_backup = clnt->adapter;
 
     clnt->plugin.column_count = dohsql_dist_column_count;
     clnt->plugin.next_row = (clnt->conns->order) ? dohsql_dist_next_row_ordered

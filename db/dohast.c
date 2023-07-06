@@ -20,6 +20,9 @@
 #include "ast.h"
 #include "dohsql.h"
 #include "sql.h"
+#include "typessql.h"
+
+extern int gbl_typessql;
 
 int gbl_dohast_disable = 0;
 int gbl_dohast_verbose = 0;
@@ -968,6 +971,37 @@ int comdb2_check_push_remote(Parse *pParse)
         if (node->remotedb > 1)
             if (!fdb_push_run(pParse, node))
                 return 1;
+    return 0;
+}
+
+int comdb2_check_typessql(Parse *pParse)
+{
+    if (comdb2IsPrepareOnly(pParse))
+        return 0;
+
+    ast_t *ast = pParse->ast;
+    // dohsql_node_t *node;
+
+    if (!gbl_typessql)
+        return 0;
+
+    if (ast && ast->unsupported)
+        return 0;
+    if (has_parallel_sql(NULL) == 0)
+        return 0;
+    if (ast->nused > 1)
+        return 0;
+    // if (!ast->stack[0].obj)
+    //     return 0;
+
+    // node = (dohsql_node_t *)ast->stack[0].obj;
+
+    // if (node->type != AST_TYPE_SELECT)
+    //     return 0;
+
+    // if (!pParse->explain)
+        // if (typessql_initialize() == 0)
+            // return 1;
     return 0;
 }
 

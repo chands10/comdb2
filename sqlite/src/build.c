@@ -38,6 +38,7 @@ int fdb_validate_existing_table(const char *zDatabase);
 char *fdb_get_alias(const char **p_tablename);
 int comdb2_check_parallel(Parse*);
 int comdb2_check_push_remote(Parse*);
+int comdb2_check_typessql(Parse*);
 void comdb2_create_view(Parse *pParse, const char *view_name,
                         int view_name_len, const char *zStmt, int temp);
 void comdb2_drop_view(Parse *pParse, SrcList *pName);
@@ -283,6 +284,10 @@ void sqlite3FinishCoding(Parse *pParse){
       }
       if( comdb2_check_parallel(pParse) ){
         pParse->rc = SQLITE_SCHEMA_DOHSQL;
+        return;
+      }
+      if (0 && comdb2_check_typessql(pParse) ){
+        // pParse->rc = SQLITE_SCHEMA_TYPESSQL;
         return;
       }
     }

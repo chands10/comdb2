@@ -3722,6 +3722,8 @@ static int run_stmt(struct sqlthdstate *thd, struct sqlclntstate *clnt,
     sqlite3_stmt *stmt = rec->stmt;
 
     run_stmt_setup(clnt, stmt);
+    if (gbl_typessql && clnt->isselect && !dohsql_is_parallel_shard() && !clnt->fdb_push)
+        typessql_initialize();
 
     /* this is a regular sql query, add it to history */
     if (srs_tran_add_query(clnt))
@@ -3855,6 +3857,7 @@ static void sqlite_done(struct sqlthdstate *thd, struct sqlclntstate *clnt,
     if (clnt->typessql_state) {
         free_typessql_state(clnt);
         clnt->typessql_state = NULL;
+        // printf("RESETTING TYPESSQL CLIENT %ld\n", pthread_self());
         clnt_plugin_reset(clnt);
     }
 
@@ -3967,7 +3970,7 @@ retry_legacy_remote:
             goto done;
         }
 
-        if (rc) {
+        if (rc && rc != SQLITE_SCHEMA_TYPESSQL) {
             int irc = errstat_get_rc(&err);
             /* certain errors are saved, in that case we don't send anything */
             if (irc == ERR_PREPARE) {
@@ -4259,9 +4262,6 @@ static int execute_sql_query(struct sqlthdstate *thd, struct sqlclntstate *clnt)
 #ifdef DEBUG
     logmsg(LOGMSG_DEBUG, "execute_sql_query: '%.30s'\n", clnt->sql);
 #endif
-
-    if (gbl_typessql)
-        _master_clnt_set(clnt, &clnt->plugin);
 
     /* access control */
     rc = check_sql_access(thd, clnt);

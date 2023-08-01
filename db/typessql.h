@@ -20,7 +20,7 @@ limitations under the License.
 #include "sql.h"
 
 void free_typessql_state(struct sqlclntstate *clnt);
-void _master_clnt_set(struct sqlclntstate *clnt, struct plugin_callbacks *adapter);
 int typessql_next_row(struct sqlclntstate *clnt, sqlite3_stmt *stmt);
+int typessql_initialize();
 
 #endif

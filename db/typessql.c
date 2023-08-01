@@ -83,20 +83,9 @@ static int update_column_types(struct sqlclntstate *clnt, sqlite3_stmt *stmt, ro
 int typessql_next_row(struct sqlclntstate *clnt, sqlite3_stmt *stmt)
 {
     int r = SQLITE_ROW;
-    typessql_t *typessql_state;
-    int initialize = 0;
-    if (!clnt->typessql_state) {
-        clnt->typessql_state = calloc(1, sizeof(typessql_t));
-        typessql_state = clnt->typessql_state;
-        typessql_state->other_rc = -1; // initialize
+    typessql_t *typessql_state = clnt->typessql_state;
+    if (!typessql_state->col_types && gbl_typessql_records_max > 0) {
         typessql_state->ncols = typessql_column_count(clnt, stmt);
-        typessql_state->rows_queue = queue_new();
-        initialize = 1;
-    } else
-        typessql_state = clnt->typessql_state;
-
-    if (initialize && gbl_typessql_records_max > 0) {
-        assert(!typessql_state->col_types);
         typessql_state->col_types = malloc(typessql_state->ncols * sizeof(int));
         for (int i = 0; i < typessql_state->ncols; i++) {
             typessql_state->col_types[i] = SQLITE_NULL;
@@ -107,7 +96,7 @@ int typessql_next_row(struct sqlclntstate *clnt, sqlite3_stmt *stmt)
             r = clnt->adapter.next_row ? clnt->adapter.next_row(clnt, stmt) : sqlite3_maybe_step(clnt, stmt);
             if (r != SQLITE_ROW) {
                 typessql_state->other_rc = r;
-                if (0 && initialize) { // TODO: Test if this is needed (don't think so)
+                if (0) { // && initialize) { // TODO: Test if this is needed (don't think so)
                     free(typessql_state->col_types);
                     typessql_state->col_types = NULL;
                 }
@@ -198,10 +187,11 @@ Add column_types non null function maybe (nah)
 Maybe change validate to use cache? (shouldn't matter)
 Check if freeing stuff correctly, like packed and unpacked memory. Look into dohsql (should be)
 */
-void _master_clnt_set(struct sqlclntstate *clnt, struct plugin_callbacks *adapter)
+static void _master_clnt_set(struct sqlclntstate *clnt, struct plugin_callbacks *adapter)
 {
-    if (adapter->next_row == typessql_next_row) {
-        printf("ATTEMPTING TO SET ADAPTER TO SELF\n");
+    assert(clnt->typessql_state);
+    if (adapter && adapter->next_row == typessql_next_row) {
+        printf("ATTEMPTING TO SET ADAPTER TO SELF %ld\n", pthread_self());
         return;
         // abort();
     }
@@ -209,8 +199,12 @@ void _master_clnt_set(struct sqlclntstate *clnt, struct plugin_callbacks *adapte
     clnt->backup = clnt->plugin;
     clnt->adapter_backup = clnt->adapter;
 
-    clnt->adapter = *adapter;
-    clnt->plugin = clnt->adapter;
+    if (adapter) {
+        clnt->adapter = *adapter;
+        clnt->plugin = clnt->adapter;
+    } else {
+        memset(&clnt->adapter, 0, sizeof(clnt->adapter));
+    }
 
     clnt->plugin.column_count = typessql_column_count;
     clnt->plugin.next_row = typessql_next_row;
@@ -226,4 +220,29 @@ void _master_clnt_set(struct sqlclntstate *clnt, struct plugin_callbacks *adapte
     // clnt->plugin.param_count = clnt->adapter.param_count;
     // clnt->plugin.param_value = clnt->adapter.param_value;
     // clnt->plugin.param_index = clnt->adapter.param_index;
+}
+
+int typessql_initialize()
+{
+    struct sql_thread *thd = pthread_getspecific(query_info_key);
+    struct sqlclntstate *clnt = thd->clnt;
+    if (!gbl_typessql)
+        return -1;
+
+    typessql_t *typessql_state = calloc(1, sizeof(typessql_t));
+    if (!typessql_state) {
+        return -1;
+    }
+    typessql_state->other_rc = -1; // initialize
+    // typessql_state->ncols = typessql_column_count(clnt, stmt); // Set this in next row
+    typessql_state->rows_queue = queue_new();
+    if (!typessql_state->rows_queue) {
+        free(typessql_state);
+        return -1;
+    }
+    clnt->typessql_state = typessql_state;
+
+    // printf("SETTING TYPESSQL CLIENT %ld %s\n", pthread_self(), clnt->sql);
+    _master_clnt_set(clnt, NULL);
+    return 0;
 }

@@ -7,7 +7,6 @@ struct row {
     char *packed;
     Mem *unpacked;
     long long row_size;
-    int *types;
 };
 typedef struct row row_t;
 
@@ -27,7 +26,6 @@ static void free_row(row_t *row, int ncols) {
     if (row->unpacked)
         sqlite3UnpackedResultFree(&row->unpacked, ncols);
     sqlite3_free(row->packed);
-    free(row->types);
     free(row);
 }
 
@@ -56,23 +54,31 @@ static int typessql_column_type(struct sqlclntstate *clnt, sqlite3_stmt *stmt, i
     }
     if (nonNullType && typessql_state->col_types)
         return typessql_state->col_types[iCol];
-    else if (typessql_state->current_row)
-        return typessql_state->current_row->types[iCol];
+    else if (typessql_state->current_row) {
+        row_t *row = typessql_state->current_row;
+        if (!row->unpacked)
+            row->unpacked = sqlite3UnpackedResult(
+                stmt, typessql_state->ncols, row->packed, row->row_size);
+        Vdbe *pVm = (Vdbe *)stmt;
+        row->unpacked[iCol].tz = pVm->tzname;
+        return sqlite3_value_type(&row->unpacked[iCol]);
+    }
 
     return clnt->adapter.column_type ? clnt->adapter.column_type(clnt, stmt, iCol) : sqlite3_column_type(stmt, iCol);
 }
 
 // return if null column still exists
-static int update_column_types(struct sqlclntstate *clnt, sqlite3_stmt *stmt, row_t *row)
+static int update_column_types(struct sqlclntstate *clnt, sqlite3_stmt *stmt)
 {
     int null_col_exists = 0;
     typessql_t *typessql_state = clnt->typessql_state;
     for (int i = 0; i < typessql_state->ncols; i++) {
+        if (typessql_state->col_types[i] != SQLITE_NULL)
+            continue;
+
         // not calling types column type here currently cuz this will read from queue
         int r = clnt->adapter.column_type ? clnt->adapter.column_type(clnt, stmt, i) : sqlite3_column_type(stmt, i);
-        row->types[i] = r;
-        if (typessql_state->col_types[i] == SQLITE_NULL)
-            typessql_state->col_types[i] = r;
+        typessql_state->col_types[i] = r;
         if (typessql_state->col_types[i] == SQLITE_NULL)
             null_col_exists = 1;
     }
@@ -96,17 +102,13 @@ int typessql_next_row(struct sqlclntstate *clnt, sqlite3_stmt *stmt)
             r = clnt->adapter.next_row ? clnt->adapter.next_row(clnt, stmt) : sqlite3_maybe_step(clnt, stmt);
             if (r != SQLITE_ROW) {
                 typessql_state->other_rc = r;
-                if (0) { // && initialize) { // TODO: Test if this is needed (don't think so)
-                    free(typessql_state->col_types);
-                    typessql_state->col_types = NULL;
-                }
+                null_col_exists = update_column_types(clnt, stmt); // ensure that types are updated at least once (ex: when no rows)
                 break;
             }
 
             // add row to queue
             row_t *row = calloc(1, sizeof(row_t));
-            row->types = malloc(typessql_state->ncols * sizeof(int));
-            null_col_exists = update_column_types(clnt, stmt, row);
+            null_col_exists = update_column_types(clnt, stmt);
             row->packed = sqlite3PackedResult(stmt, &row->row_size);
             if (queue_add(typessql_state->rows_queue, row))
                 abort();
@@ -138,9 +140,9 @@ int typessql_next_row(struct sqlclntstate *clnt, sqlite3_stmt *stmt)
     static ret typessql_column_##type(struct sqlclntstate *clnt,                                                                \
                                       sqlite3_stmt *stmt, int iCol)                                                             \
     {                                                                                                                           \
-        typessql_t *typessql_state = clnt->typessql_state;                                                                 \
+        typessql_t *typessql_state = clnt->typessql_state;                                                                      \
         if (typessql_state->current_row) {                                                                                      \
-            row_t *row = typessql_state->current_row;                                                                          \
+            row_t *row = typessql_state->current_row;                                                                           \
             if (!row->unpacked)                                                                                                 \
                 row->unpacked = sqlite3UnpackedResult(                                                                          \
                     stmt, typessql_state->ncols, row->packed, row->row_size);                                                   \
@@ -175,9 +177,25 @@ static const intv_t *typessql_column_interval(struct sqlclntstate *clnt,
     return clnt->adapter.column_interval ? clnt->adapter.column_interval(clnt, stmt, iCol, type) : sqlite3_column_interval(stmt, iCol, type);
 }
 
+static sqlite3_value *typessql_column_value(struct sqlclntstate *clnt,
+                                            sqlite3_stmt *stmt, int iCol)
+{
+    typessql_t *typessql_state = clnt->typessql_state;
+    if (typessql_state->current_row) {
+        row_t *row = typessql_state->current_row;
+        if (!row->unpacked)
+            row->unpacked = sqlite3UnpackedResult(
+                stmt, typessql_state->ncols, row->packed, row->row_size);
+        Vdbe *pVm = (Vdbe *)stmt;
+        row->unpacked[iCol].tz = pVm->tzname;
+        return &row->unpacked[iCol];
+    }
+    return clnt->adapter.column_value ? clnt->adapter.column_value(clnt, stmt, iCol) : sqlite3_column_value(stmt, iCol);
+}
+
 /*
 TODO:
-Need to update that one spot that also calls sql functions. Check if any other spots (don't think any other spots)
+Check if need anything else from columnmem
 handle_fdb_push/dohsql calls client reset. Might call reset on typessql. Change where set and reset
  - Inserting from generate_series causes adapter to set to self. Maybe this is also using dohsql?
 
@@ -216,6 +234,7 @@ static void _master_clnt_set(struct sqlclntstate *clnt, struct plugin_callbacks 
     clnt->plugin.column_blob = typessql_column_blob;
     clnt->plugin.column_datetime = typessql_column_datetime;
     clnt->plugin.column_interval = typessql_column_interval;
+    clnt->plugin.column_value = typessql_column_value;
     // clnt->plugin.sqlite_error = clnt->adapter.sqlite_error;
     // clnt->plugin.param_count = clnt->adapter.param_count;
     // clnt->plugin.param_value = clnt->adapter.param_value;
@@ -239,6 +258,9 @@ int typessql_initialize()
     if (!typessql_state->rows_queue) {
         free(typessql_state);
         return -1;
+    }
+    if (clnt->typessql_state) {
+        printf("OVERRIDING TYPESSQL_STATE %ld\n", pthread_self());
     }
     clnt->typessql_state = typessql_state;
 

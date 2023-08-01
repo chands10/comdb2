@@ -71,6 +71,7 @@ int fdb_push_run(Parse *pParse, dohsql_node_t *node)
 
     push->ncols = node->ncols;
 
+    // printf("SETTING FDB CLIENT %ld\n", pthread_self());
     _master_clnt_set(clnt);
 
     clnt->fdb_push = push;
@@ -158,6 +159,7 @@ static void _master_clnt_set(struct sqlclntstate *clnt)
     clnt->plugin.column_blob = fdb_push_column_blob;
     clnt->plugin.column_datetime = fdb_push_column_datetime;
     clnt->plugin.column_interval = fdb_push_column_interval;
+    clnt->plugin.column_value = NULL;
     clnt->plugin.tzname = _get_tzname;
 }
 
@@ -284,6 +286,7 @@ send_error:
 closing:
     cdb2_close(hndl);
 
+    // printf("RESETTING FDB CLIENT %ld\n", pthread_self());
     clnt_plugin_reset(clnt);
 
     return rc;

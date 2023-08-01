@@ -1087,6 +1087,7 @@ static void _master_clnt_set(struct sqlclntstate *clnt)
     clnt->plugin.column_blob = dohsql_dist_column_blob;
     clnt->plugin.column_datetime = dohsql_dist_column_datetime;
     clnt->plugin.column_interval = dohsql_dist_column_interval;
+    clnt->plugin.column_value = NULL; // TODO: Change to use dohsql_column_value
     clnt->plugin.sqlite_error = dohsql_dist_sqlite_error;
     clnt->plugin.param_count = dohsql_dist_param_count;
     clnt->plugin.param_value = dohsql_dist_param_value;
@@ -1190,6 +1191,7 @@ int dohsql_distribute(dohsql_node_t *node)
     }
     clnt->conns = conns;
     /* augment interface */
+    // printf("SETTING DOHSQL CLIENT %ld\n", pthread_self());
     _master_clnt_set(clnt);
 
     /* start peers */
@@ -1313,6 +1315,7 @@ int dohsql_end_distribute(struct sqlclntstate *clnt, struct reqlogger *logger)
         free(conns->order);
         free(conns->order_dir);
     }
+    // printf("RESETTING DOHSQL CLIENT %ld\n", pthread_self());
     clnt_plugin_reset(clnt);
     clnt->conns = NULL;
     free(conns);

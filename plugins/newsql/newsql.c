@@ -27,7 +27,6 @@
 #include <str0.h>
 
 #include <newsql.h>
-#include <typessql.h>
 
 void free_original_normalized_sql(struct sqlclntstate *);
 
@@ -384,8 +383,7 @@ static int newsql_columns(struct sqlclntstate *clnt, sqlite3_stmt *stmt)
         cols[i].value.data = (uint8_t *)name;
         cols[i].value.len = len;
         cols[i].has_type = 1;
-        cols[i].type = appdata->col_info.type[i] = get_col_type(clnt, stmt, clnt->plugin.next_row == typessql_next_row ? i + ncols : i);
-        // printf("Index %d name %s type %d null %d\n", i, name, cols[i].type, is_column_type_null(clnt, stmt, i));
+        cols[i].type = appdata->col_info.type[i] = get_col_type(clnt, stmt, clnt->typessql_state ? i + ncols : i);
     }
     CDB2SQLRESPONSE resp = CDB2__SQLRESPONSE__INIT;
     resp.response_type = RESPONSE_TYPE__COLUMN_NAMES;

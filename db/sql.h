@@ -482,6 +482,7 @@ struct plugin_callbacks {
     SQLITE_CALLBACK_API(int, bytes);                  /* sqlite3_column_bytes */
     SQLITE_CALLBACK_API(const void *, blob);          /* sqlite3_column_bytes */
     SQLITE_CALLBACK_API(const dttz_t *, datetime);    /* sqlite3_column_datetime */
+    SQLITE_CALLBACK_API(sqlite3_value *, value);      /* sqlite3_column_value */
     const intv_t *(*column_interval)(struct sqlclntstate *, sqlite3_stmt *, int, int);  /* sqlite3_column_interval*/
     int (*sqlite_error)(struct sqlclntstate *, sqlite3_stmt *, const char **errstr);    /* sqlite3_errcode */
 };
@@ -543,6 +544,7 @@ struct plugin_callbacks {
         make_plugin_optional_null(clnt, blob);                                 \
         make_plugin_optional_null(clnt, datetime);                             \
         make_plugin_optional_null(clnt, interval);                             \
+        make_plugin_optional_null(clnt, value);                                \
         (clnt)->plugin.state = NULL;                                           \
         (clnt)->plugin.next_row = NULL;                                        \
         (clnt)->plugin.tzname = NULL;                                          \
@@ -1401,6 +1403,7 @@ int column_bytes(struct sqlclntstate *, sqlite3_stmt *, int);
 const void *column_blob(struct sqlclntstate *, sqlite3_stmt *, int);
 const dttz_t *column_datetime(struct sqlclntstate *, sqlite3_stmt *, int);
 const intv_t *column_interval(struct sqlclntstate *, sqlite3_stmt *, int, int);
+sqlite3_value *column_value(struct sqlclntstate *, sqlite3_stmt *, int);
 
 struct query_stats {
     int64_t nfstrap;

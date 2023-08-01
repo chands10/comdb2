@@ -451,6 +451,12 @@ const intv_t *column_interval(struct sqlclntstate *clnt, sqlite3_stmt *stmt, int
     return sqlite3_column_interval(stmt, iCol, type);
 }
 
+sqlite3_value *column_value(struct sqlclntstate *clnt, sqlite3_stmt *stmt, int iCol)
+{
+    if (clnt && clnt->plugin.column_value) return clnt->plugin.column_value(clnt, stmt, iCol);
+    return sqlite3_column_value(stmt, iCol);
+}
+
 int sqlite_stmt_error(sqlite3_stmt *stmt, const char **errstr)
 {
     sqlite3 *db = sqlite3_db_handle(stmt);
@@ -3745,7 +3751,7 @@ static int run_stmt(struct sqlthdstate *thd, struct sqlclntstate *clnt,
 
     if (clnt->verify_indexes && steprc == SQLITE_ROW) {
         clnt->has_sqliterow = 1;
-        return verify_indexes_column_value(stmt, clnt->schema_mems);
+        return verify_indexes_column_value(clnt, stmt, clnt->schema_mems);
     } else if (clnt->verify_indexes && steprc == SQLITE_DONE) {
         clnt->has_sqliterow = 0;
         return 0;
@@ -4572,7 +4578,7 @@ static int execute_verify_indexes(struct sqlthdstate *thd, struct sqlclntstate *
     run_stmt_setup(clnt, stmt);
     if ((clnt->step_rc = rc = sqlite3_step(stmt)) == SQLITE_ROW) {
         clnt->has_sqliterow = 1;
-        rc = verify_indexes_column_value(stmt, clnt->schema_mems);
+        rc = verify_indexes_column_value(clnt, stmt, clnt->schema_mems);
         if (gbl_enable_internal_sql_stmt_caching) {
             if (cached_entry)
                 stmt_cache_requeue_old_entry(thd->stmt_cache, cached_entry);

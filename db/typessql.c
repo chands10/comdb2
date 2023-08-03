@@ -16,6 +16,7 @@ struct typessql {
     queue_type *rows_queue;
     row_t *current_row;
     int other_rc; // initialized to -1. Set if rc for grabbing next row is not SQLITE_ROW
+    int first_run; // initialized to 1
 };
 typedef struct typessql typessql_t;
 
@@ -72,6 +73,13 @@ static int update_column_types(struct sqlclntstate *clnt, sqlite3_stmt *stmt)
 {
     int null_col_exists = 0;
     typessql_t *typessql_state = clnt->typessql_state;
+    if (!typessql_state->col_types) {
+        typessql_state->col_types = malloc(typessql_state->ncols * sizeof(int));
+        for (int i = 0; i < typessql_state->ncols; i++) {
+            typessql_state->col_types[i] = SQLITE_NULL;
+        }
+    }
+
     for (int i = 0; i < typessql_state->ncols; i++) {
         if (typessql_state->col_types[i] != SQLITE_NULL)
             continue;
@@ -90,19 +98,15 @@ int typessql_next_row(struct sqlclntstate *clnt, sqlite3_stmt *stmt)
 {
     int r = SQLITE_ROW;
     typessql_t *typessql_state = clnt->typessql_state;
-    if (!typessql_state->col_types && gbl_typessql_records_max > 0) {
+    if (typessql_state->first_run && gbl_typessql_records_max > 0) {
+        typessql_state->first_run = 0;
         typessql_state->ncols = typessql_column_count(clnt, stmt);
-        typessql_state->col_types = malloc(typessql_state->ncols * sizeof(int));
-        for (int i = 0; i < typessql_state->ncols; i++) {
-            typessql_state->col_types[i] = SQLITE_NULL;
-        }
 
         int null_col_exists = 1;
         while (null_col_exists && queue_count(typessql_state->rows_queue) < gbl_typessql_records_max) {
             r = clnt->adapter.next_row ? clnt->adapter.next_row(clnt, stmt) : sqlite3_maybe_step(clnt, stmt);
             if (r != SQLITE_ROW) {
                 typessql_state->other_rc = r;
-                null_col_exists = update_column_types(clnt, stmt); // ensure that types are updated at least once (ex: when no rows)
                 break;
             }
 
@@ -195,7 +199,11 @@ static sqlite3_value *typessql_column_value(struct sqlclntstate *clnt,
 
 /*
 TODO:
+Free blocking row
+Add separate thread with timeout
+Change to btree
 Check if need anything else from columnmem
+ - Add db/dttprec
 handle_fdb_push/dohsql calls client reset. Might call reset on typessql. Change where set and reset
  - Inserting from generate_series causes adapter to set to self. Maybe this is also using dohsql?
 
@@ -253,6 +261,7 @@ int typessql_initialize()
         return -1;
     }
     typessql_state->other_rc = -1; // initialize
+    typessql_state->first_run = 1;
     // typessql_state->ncols = typessql_column_count(clnt, stmt); // Set this in next row
     typessql_state->rows_queue = queue_new();
     if (!typessql_state->rows_queue) {

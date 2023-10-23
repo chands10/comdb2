@@ -22,7 +22,7 @@ static void fsnapi(const char *prefix, const char *buf, size_t len,
                    fsnap_callback_type callback, void *context)
 {
     static char *hexchars = "0123456789ABCDEF";
-    char hdsp[60], cdsp[60], ch;
+    char hdsp[60], ch;
     size_t ii, jj, boff, hoff, coff;
     if (!prefix)
         prefix = "";
@@ -31,24 +31,15 @@ static void fsnapi(const char *prefix, const char *buf, size_t len,
         for (jj = 0; jj < 16; jj++) {
             boff = ii + jj;
             if (boff >= len) {
-                hdsp[hoff++] = ' ';
-                hdsp[hoff++] = ' ';
-                cdsp[coff++] = ' ';
+                break;
             } else {
                 ch = buf[boff];
                 hdsp[hoff++] = hexchars[(ch >> 4) & 0x0f];
                 hdsp[hoff++] = hexchars[ch & 0x0f];
-                if (ch >= ' ' && ch < 0x7f)
-                    cdsp[coff++] = ch;
-                else
-                    cdsp[coff++] = '.';
             }
-            if ((jj & 3) == 3)
-                hdsp[hoff++] = ' ';
         }
         hdsp[hoff] = 0;
-        cdsp[coff] = 0;
-        if (callback(context, "%s%5x:%s |%s|\n", prefix, ii, hdsp, cdsp) < 0)
+        if (callback(context, "%s:%s", prefix, hdsp) < 0)
             return;
     }
 }

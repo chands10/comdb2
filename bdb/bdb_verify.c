@@ -36,6 +36,9 @@ extern int is_comdb2_index_expression(const char *dbname);
 extern void set_null_func(void *p, int len);
 extern void set_data_func(void *to, const void *from, int sz);
 extern void fsnapf(FILE *, void *, int);
+typedef int (*fsnap_callback_type)(void *context, const char *fmt, ...);
+extern void fsnapp(const char *prefix, const void *buf, size_t len,
+            fsnap_callback_type callback, void *context);
 extern int __bam_defcmp(DB *dbp, const DBT *a, const DBT *b);
 int gbl_debug_sleep_on_verify = 0;
 
@@ -869,6 +872,8 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
         if (memcmp(expected_keybuf, dbt_key.data, keylen)) {
             par->verify_status = 1;
             locprint(par, "!%016llx ix %d key mismatch", genid_flipped, ix);
+            fsnapp("expected_key", expected_keybuf, keylen, (fsnap_callback_type)locprint, par);
+            fsnapp("observed_key", dbt_key.data, keylen, (fsnap_callback_type)locprint, par);
             goto next_key;
         }
 

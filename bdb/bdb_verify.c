@@ -873,6 +873,10 @@ static int bdb_verify_key(verify_common_t *par, int ix, unsigned int lid)
             par->verify_status = 1;
             locprint(par, "!%016llx ix %d key mismatch", genid_flipped, ix);
             fsnapp("expected_key", expected_keybuf, keylen, (fsnap_callback_type)locprint, par);
+            if (bdb_keycontainsgenid(bdb_state, ix)) {
+                keylen += sizeof(unsigned long long);
+                locprint(par, "KEY CONTAINS GENID");
+            }
             fsnapp("observed_key", dbt_key.data, keylen, (fsnap_callback_type)locprint, par);
             goto next_key;
         }

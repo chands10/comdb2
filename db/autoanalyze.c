@@ -35,7 +35,6 @@
 
 const char *aa_counter_str = "autoanalyze_counter";
 const char *aa_lastepoch_str = "autoanalyze_lastepoch";
-const char *aa_needs_analyze_str = "autoanalyze_needs_analyze";
 const char *aa_needs_analyze_time_str = "autoanalyze_needs_analyze_time";
 static volatile int auto_analyze_running = 0;
 int gbl_debug_aa;
@@ -56,7 +55,6 @@ void reset_aa_counter(char *tblname)
     }
 
     XCHANGE32(tbl->aa_saved_counter, 0);
-    XCHANGE32(tbl->aa_needs_analyze, 0);
     XCHANGE64(tbl->aa_lastepoch, (int64_t)time(NULL));
     XCHANGE64(tbl->aa_needs_analyze_time, 0);
 
@@ -68,7 +66,6 @@ void reset_aa_counter(char *tblname)
         char epoch[30] = {0};
         sprintf(epoch, "%lld", (long long)tbl->aa_lastepoch);
         bdb_set_table_parameter(NULL, tblname, aa_lastepoch_str, epoch);
-        bdb_set_table_parameter(NULL, tblname, aa_needs_analyze_str, str);
         bdb_set_table_parameter(NULL, tblname, aa_needs_analyze_time_str, str);
     }
 
@@ -77,9 +74,9 @@ void reset_aa_counter(char *tblname)
     char my_buf[30];
     char my_buf2[30];
     ctrace("AUTOANALYZE: Analyzed Table %s, reseting counter to %d, last "
-           "run time %s, needs analyze %d, needs analyze time %s",
+           "run time %s, needs analyze time %s",
            tbl->tablename, tbl->aa_saved_counter,
-           ctime_r((time_t *)&tbl->aa_lastepoch, my_buf), tbl->aa_needs_analyze,
+           ctime_r((time_t *)&tbl->aa_lastepoch, my_buf),
            ctime_r((time_t *)&tbl->aa_needs_analyze_time, my_buf2));
 }
 
@@ -136,8 +133,8 @@ void *auto_analyze_table(void *arg)
     return NULL;
 }
 
-static void get_saved_counter_epoch_queue(char *tblname, unsigned *aa_counter,
-                                          int64_t *aa_lastepoch, unsigned *aa_needs_analyze,
+static void get_saved_counter_epochs(char *tblname, unsigned *aa_counter,
+                                          int64_t *aa_lastepoch,
                                           int64_t *aa_needs_analyze_time)
 {
     int rc;
@@ -158,16 +155,6 @@ static void get_saved_counter_epoch_queue(char *tblname, unsigned *aa_counter,
         if (rc == 0) {
             *aa_lastepoch = atoll(epochstr);
             free(epochstr);
-        }
-    }
-
-    if (aa_needs_analyze) {
-        *aa_needs_analyze = 0;
-        char *needs_analyze_str = NULL;
-        rc = bdb_get_table_parameter(tblname, aa_needs_analyze_str, &needs_analyze_str);
-        if (rc == 0) {
-            *aa_needs_analyze = strtoul(needs_analyze_str, NULL, 10);
-            free(needs_analyze_str);
         }
     }
 
@@ -192,23 +179,20 @@ int load_auto_analyze_counters(void)
             continue;
 
         XCHANGE64(tbl->aa_lastepoch, 0);
-        XCHANGE32(tbl->aa_needs_analyze, 0);
         XCHANGE64(tbl->aa_needs_analyze_time, 0);
         if (save_freq > 0) {
             unsigned int saved_counter = 0;
             int64_t lastepoch = 0;
-            unsigned int needs_analyze = 0;
             int64_t needs_analyze_time = 0;
-            get_saved_counter_epoch_queue(tbl->tablename, &saved_counter, &lastepoch, &needs_analyze, &needs_analyze_time);
+            get_saved_counter_epochs(tbl->tablename, &saved_counter, &lastepoch, &needs_analyze_time);
             XCHANGE32(tbl->aa_saved_counter, saved_counter);
             XCHANGE64(tbl->aa_lastepoch, lastepoch);
-            XCHANGE32(tbl->aa_needs_analyze, needs_analyze);
             XCHANGE64(tbl->aa_needs_analyze_time, needs_analyze_time);
 
             char my_buf[30];
             char my_buf2[30];
-            ctrace("AUTOANALYZE: Loading table %s, count %d, last run time %s, needs analyze %d, needs analyze time %s",
-                   tbl->tablename, tbl->aa_saved_counter, ctime_r((time_t *)&tbl->aa_lastepoch, my_buf), tbl->aa_needs_analyze,
+            ctrace("AUTOANALYZE: Loading table %s, count %d, last run time %s, needs analyze time %s",
+                   tbl->tablename, tbl->aa_saved_counter, ctime_r((time_t *)&tbl->aa_lastepoch, my_buf),
                    ctime_r((time_t *)&tbl->aa_needs_analyze_time, my_buf2));
         }
     }
@@ -358,7 +342,7 @@ void stat_auto_analyze(void)
                tbl->tablename, newautoanalyze_counter, saved_counter, delta, new_aa_percnt);
         int64_t lastepoch = ATOMIC_LOAD64(tbl->aa_lastepoch);
         loc_print_date(&lastepoch);
-        logmsg(LOGMSG_USER, ", needs analyze=%d, needs analyze time=", ATOMIC_LOAD32(tbl->aa_needs_analyze));
+        logmsg(LOGMSG_USER, ", needs analyze time=");
         int64_t needs_analyze_time = ATOMIC_LOAD64(tbl->aa_needs_analyze_time);
         loc_print_date(&needs_analyze_time);
         logmsg(LOGMSG_USER, "\n");
@@ -426,7 +410,6 @@ void *auto_analyze_main(void *unused)
 
         unsigned int newautoanalyze_counter = ATOMIC_LOAD32(tbl->aa_saved_counter);
         int64_t lastepoch = ATOMIC_LOAD64(tbl->aa_lastepoch);
-        unsigned int needs_analyze = ATOMIC_LOAD32(tbl->aa_needs_analyze);
         int64_t needs_analyze_time = ATOMIC_LOAD64(tbl->aa_needs_analyze_time);
         double new_aa_percnt = 0;
 
@@ -450,29 +433,25 @@ void *auto_analyze_main(void *unused)
             // In AA_REQUEST_MODE, boolean needs_analyze is set in comdb2_auto_analyze_tables
             // that another task can watch for and schedule analyze at a time of its choosing
             if (bdb_attr_get(thedb->bdb_attr, BDB_ATTR_AA_REQUEST_MODE)) {
-                if (!needs_analyze) {
-                    needs_analyze = 1;
-                    XCHANGE32(tbl->aa_needs_analyze, 1);
+                if (!needs_analyze_time) {
                     needs_analyze_time = time(NULL);
                     XCHANGE64(tbl->aa_needs_analyze_time, needs_analyze_time);
-                    ctrace("AUTOANALYZE: Requesting analyze be run for Table %s, counter (%d) (setting needs_analyze); last run time %s, needs analyze time %s\n",
+                    ctrace("AUTOANALYZE: Requesting analyze be run for Table %s, counter (%d) (setting needs analyze time); last run time %s, needs analyze time %s\n",
                            tbl->tablename, newautoanalyze_counter, ctime_r(&tbl->aa_lastepoch, my_buf), ctime_r(&needs_analyze_time, my_buf2));
 
                     if (save_freq > 0) {
-                        const char *str = "1";
-                        bdb_set_table_parameter(NULL, tbl->tablename, aa_needs_analyze_str, str);
                         char needs_analyze_time_str[30] = {0};
                         sprintf(needs_analyze_time_str, "%lld", (long long)needs_analyze_time);
                         bdb_set_table_parameter(NULL, tbl->tablename, aa_needs_analyze_time_str, needs_analyze_time_str);
                     }
                 } else {
-                    ctrace("AUTOANALYZE: Table %s, counter (%d) needs_analyze already set, doing nothing; last run time %s, needs analyze time %s\n",
+                    ctrace("AUTOANALYZE: Table %s, counter (%d) needs analyze time already set, doing nothing; last run time %s, needs analyze time %s\n",
                            tbl->tablename, newautoanalyze_counter, ctime_r(&tbl->aa_lastepoch, my_buf), ctime_r(&needs_analyze_time, my_buf2));
                 }
             } else {
                 ctrace(
-                    "AUTOANALYZE: Analyzing Table %s, counter (%d); last run time %s, needs analyze %d, needs analyze time %s\n",
-                    tbl->tablename, newautoanalyze_counter, ctime_r((time_t *)&lastepoch, my_buf), needs_analyze, ctime_r((time_t *)&needs_analyze_time, my_buf2));
+                    "AUTOANALYZE: Analyzing Table %s, counter (%d); last run time %s, needs analyze time %s\n",
+                    tbl->tablename, newautoanalyze_counter, ctime_r((time_t *)&lastepoch, my_buf), ctime_r((time_t *)&needs_analyze_time, my_buf2));
                 auto_analyze_running = 1; // will be reset by
                                              // auto_analyze_table()
                 pthread_t analyze;
@@ -484,11 +463,11 @@ void *auto_analyze_main(void *unused)
             // save updated autoanalyze counter if there is a delta
             unsigned int llmeta_aa_saved_counter;
             // get saved counter from llmeta
-            get_saved_counter_epoch_queue(tbl->tablename, &llmeta_aa_saved_counter, NULL, NULL, NULL);
+            get_saved_counter_epochs(tbl->tablename, &llmeta_aa_saved_counter, NULL, NULL);
             int delta = newautoanalyze_counter - llmeta_aa_saved_counter;
             if (delta > 0) {
-                ctrace("AUTOANALYZE: Table %s, saving counter (%d); last run time %s, needs analyze %d, needs analyze time %s\n",
-                        tbl->tablename, newautoanalyze_counter, ctime_r((time_t *)&lastepoch, my_buf), needs_analyze, ctime_r((time_t *)&needs_analyze_time, my_buf2));
+                ctrace("AUTOANALYZE: Table %s, saving counter (%d); last run time %s, needs analyze time %s\n",
+                        tbl->tablename, newautoanalyze_counter, ctime_r((time_t *)&lastepoch, my_buf), ctime_r((time_t *)&needs_analyze_time, my_buf2));
                 char str[12] = {0};
                 sprintf(str, "%d", newautoanalyze_counter);
                 bdb_set_table_parameter(NULL, tbl->tablename, aa_counter_str, str);

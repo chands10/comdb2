@@ -659,8 +659,7 @@ typedef struct dbtable {
     int64_t aa_lastepoch;
     unsigned aa_counter_upd;   // counter which includes updates
     unsigned aa_counter_noupd; // does not include updates
-    unsigned aa_needs_analyze; // update when analyze is needed for table
-    int64_t aa_needs_analyze_time; // time for when analyze was needed for table
+    int64_t aa_needs_analyze_time; // time when analyze is needed for table in request mode, otherwise 0
 
     /* Foreign key constraints */
     constraint_t *constraints;

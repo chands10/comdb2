@@ -37,7 +37,6 @@ typedef struct systable_auto_analyze_tables {
     int64_t delta;
     double new_aa_percnt;
     cdb2_client_datetime_t *lastepoch;
-    int64_t needs_analyze;
     cdb2_client_datetime_t *needs_analyze_time;
 } systable_auto_analyze_tables_t;
 
@@ -80,10 +79,9 @@ int auto_analyze_tables_systable_collect(void **data, int *nrecords)
             gmtime_r(&lastepoch, (struct tm*)&arr[idx].lastepoch->tm);
             strcpy(arr[idx].lastepoch->tzname, "UTC");
         }
-        arr[idx].needs_analyze = ATOMIC_LOAD32(tbl->aa_needs_analyze);
-        if (arr[idx].needs_analyze) {
+        int64_t needs_analyze_time = ATOMIC_LOAD64(tbl->aa_needs_analyze_time);
+        if (needs_analyze_time != 0) {
             arr[idx].needs_analyze_time = calloc(1, sizeof(*arr[0].needs_analyze_time));
-            int64_t needs_analyze_time = ATOMIC_LOAD64(tbl->aa_needs_analyze_time);
             gmtime_r(&needs_analyze_time, (struct tm*)&arr[idx].needs_analyze_time->tm);
             strcpy(arr[idx].needs_analyze_time->tzname, "UTC");
         }
@@ -117,7 +115,6 @@ int systblAutoAnalyzeTablesInit(sqlite3*db)
         CDB2_INTEGER, "new", -1, offsetof(systable_auto_analyze_tables_t, delta),
         CDB2_REAL, "percent_of_tbl", -1, offsetof(systable_auto_analyze_tables_t, new_aa_percnt),
         CDB2_DATETIME | SYSTABLE_FIELD_NULLABLE, "last_run_time", -1, offsetof(systable_auto_analyze_tables_t, lastepoch),
-        CDB2_INTEGER, "needs_analyze", -1, offsetof(systable_auto_analyze_tables_t, needs_analyze),
         CDB2_DATETIME | SYSTABLE_FIELD_NULLABLE, "needs_analyze_time", -1, offsetof(systable_auto_analyze_tables_t, needs_analyze_time),
         SYSTABLE_END_OF_FIELDS);
 }

@@ -117,5 +117,7 @@ int systblAutoAnalyzeTablesInit(sqlite3*db)
         CDB2_INTEGER, "new", -1, offsetof(systable_auto_analyze_tables_t, delta),
         CDB2_REAL, "percent_of_tbl", -1, offsetof(systable_auto_analyze_tables_t, new_aa_percnt),
         CDB2_DATETIME | SYSTABLE_FIELD_NULLABLE, "last_run_time", -1, offsetof(systable_auto_analyze_tables_t, lastepoch),
+        CDB2_INTEGER, "needs_analyze", -1, offsetof(systable_auto_analyze_tables_t, needs_analyze),
+        CDB2_DATETIME | SYSTABLE_FIELD_NULLABLE, "needs_analyze_time", -1, offsetof(systable_auto_analyze_tables_t, needs_analyze_time),
         SYSTABLE_END_OF_FIELDS);
 }

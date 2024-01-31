@@ -443,5 +443,59 @@ if [[ $lastRun != $prevDate || $savedCnt -eq 0 ]] ; then
     exit -1
 fi
 
+echo ""
+echo "Testing needs_analyze in aa_request_mode"
+
+cdb2sql --tabs ${CDB2_OPTIONS} --host $master $dbnm 'exec procedure sys.cmd.send("bdb setattr autoanalyze 1")'
+cdb2sql --tabs ${CDB2_OPTIONS} --host $master $dbnm 'exec procedure sys.cmd.send("bdb setattr aa_count_upd 1")'
+cdb2sql --tabs ${CDB2_OPTIONS} --host $master $dbnm 'exec procedure sys.cmd.send("bdb setattr min_aa_ops 50")'
+cdb2sql --tabs ${CDB2_OPTIONS} --host $master $dbnm 'exec procedure sys.cmd.send("bdb setattr chk_aa_time 6")'
+cdb2sql --tabs ${CDB2_OPTIONS} --host $master $dbnm 'exec procedure sys.cmd.send("bdb setattr min_aa_time 10")'
+cdb2sql --tabs ${CDB2_OPTIONS} --host $master $dbnm 'exec procedure sys.cmd.send("bdb setattr aa_llmeta_save_freq 1")'
+cdb2sql --tabs ${CDB2_OPTIONS} --host $master $dbnm 'exec procedure sys.cmd.send("bdb setattr aa_min_percent 20")'
+cdb2sql --tabs ${CDB2_OPTIONS} --host $master $dbnm 'exec procedure sys.cmd.send("bdb setattr aa_min_percent_jitter 300")'
+cdb2sql --tabs ${CDB2_OPTIONS} --host $master $dbnm 'exec procedure sys.cmd.send("bdb setattr aa_request_mode 1")'
+
+sleep 5
+
+update_records 100
+sleep 60
+
+tablename=`cdb2sql --tabs ${CDB2_OPTIONS} --host $master $dbnm 'select tablename from comdb2_auto_analyze_tables where needs_analyze=1'`
+if [[ ! $tablename || $tablename != "t1" ]] ; then
+    echo "Expected table t1 needing analyze from comdb2_auto_analyze_tables, got $tablename instead"
+    echo "Failed"
+    exit -1
+fi
+needs_analyze_time=`cdb2sql --tabs ${CDB2_OPTIONS} --host $master $dbnm 'select needs_analyze_time from comdb2_auto_analyze_tables where needs_analyze=1'`
+
+# make sure needs_analyze_time stays the same
+sleep 60
+
+needs_analyze_time2=`cdb2sql --tabs ${CDB2_OPTIONS} --host $master $dbnm 'select needs_analyze_time from comdb2_auto_analyze_tables where needs_analyze=1'`
+if [[ $needs_analyze_time != $needs_analyze_time2 ]] ; then
+    echo "Time changed for needs_analyze_time from $needs_analyze_time to $needs_analyze_time2"
+    echo "Failed"
+    exit -1
+fi
+
+# also check replicant
+replicant=`cdb2sql --tabs ${CDB2_OPTIONS} $dbnm default "select host from comdb2_cluster where is_master='N' limit 1"`
+if [[ $replicant ]]; then
+    echo "Testing replicant $replicant"
+    tablename=`cdb2sql --tabs ${CDB2_OPTIONS} --host $replicant $dbnm 'select tablename from comdb2_auto_analyze_tables where needs_analyze=1'`
+    if [[ ! $tablename || $tablename != "t1" ]] ; then
+        echo "Expected table t1 needing analyze from comdb2_auto_analyze_tables on replicant, got $tablename instead"
+        echo "Failed"
+        exit -1
+    fi
+
+    needs_analyze_time2=`cdb2sql --tabs ${CDB2_OPTIONS} --host $replicant $dbnm 'select needs_analyze_time from comdb2_auto_analyze_tables where needs_analyze=1'`
+    if [[ $needs_analyze_time != $needs_analyze_time2 ]] ; then
+        echo "needs_analyze_time on replicant ($needs_analyze_time2) is different than needs_analyze_time on master ($needs_analyze_time)"
+        echo "Failed"
+        exit -1
+    fi
+fi
 
 echo "Success"

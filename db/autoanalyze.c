@@ -358,6 +358,9 @@ void stat_auto_analyze(void)
                tbl->tablename, newautoanalyze_counter, saved_counter, delta, new_aa_percnt);
         int64_t lastepoch = ATOMIC_LOAD64(tbl->aa_lastepoch);
         loc_print_date(&lastepoch);
+        logmsg(LOGMSG_USER, ", needs analyze=%d, needs analyze time=", ATOMIC_LOAD32(tbl->aa_needs_analyze));
+        int64_t needs_analyze_time = ATOMIC_LOAD64(tbl->aa_needs_analyze_time);
+        loc_print_date(&needs_analyze_time);
         logmsg(LOGMSG_USER, "\n");
     }
 }
@@ -444,13 +447,28 @@ void *auto_analyze_main(void *unused)
                 ctrace("AUTOANALYZE: Forcing analyze because new_aa_percnt %f > min_percent %d\n",
                        new_aa_percnt, min_percent);
 
-            // In AA_REQUEST_MODE, a message is printed to stdout that another
-            // task can watch for and schedule analyze at a time of its choosing
+            // In AA_REQUEST_MODE, boolean needs_analyze is set in comdb2_auto_analyze_tables
+            // that another task can watch for and schedule analyze at a time of its choosing
             if (bdb_attr_get(thedb->bdb_attr, BDB_ATTR_AA_REQUEST_MODE)) {
-                ctrace("AUTOANALYZE: Requesting analyze be run for Table %s, counter (%d); last run time %s\n",
-                       tbl->tablename, newautoanalyze_counter, ctime_r((time_t *)&lastepoch, my_buf));
+                if (!needs_analyze) {
+                    needs_analyze = 1;
+                    XCHANGE32(tbl->aa_needs_analyze, 1);
+                    needs_analyze_time = time(NULL);
+                    XCHANGE64(tbl->aa_needs_analyze_time, needs_analyze_time);
+                    ctrace("AUTOANALYZE: Requesting analyze be run for Table %s, counter (%d) (setting needs_analyze); last run time %s, needs analyze time %s\n",
+                           tbl->tablename, newautoanalyze_counter, ctime_r(&tbl->aa_lastepoch, my_buf), ctime_r(&needs_analyze_time, my_buf2));
 
-                logmsg(LOGMSG_USER, "AUTOANALYZE: Requesting analyze be run for table: %s\n", tbl->tablename);
+                    if (save_freq > 0) {
+                        const char *str = "1";
+                        bdb_set_table_parameter(NULL, tbl->tablename, aa_needs_analyze_str, str);
+                        char needs_analyze_time_str[30] = {0};
+                        sprintf(needs_analyze_time_str, "%lld", (long long)needs_analyze_time);
+                        bdb_set_table_parameter(NULL, tbl->tablename, aa_needs_analyze_time_str, needs_analyze_time_str);
+                    }
+                } else {
+                    ctrace("AUTOANALYZE: Table %s, counter (%d) needs_analyze already set, doing nothing; last run time %s, needs analyze time %s\n",
+                           tbl->tablename, newautoanalyze_counter, ctime_r(&tbl->aa_lastepoch, my_buf), ctime_r(&needs_analyze_time, my_buf2));
+                }
             } else {
                 ctrace(
                     "AUTOANALYZE: Analyzing Table %s, counter (%d); last run time %s, needs analyze %d, needs analyze time %s\n",

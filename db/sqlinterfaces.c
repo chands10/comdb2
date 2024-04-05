@@ -208,7 +208,6 @@ void handle_sql_intrans_unrecoverable_error(struct sqlclntstate *clnt);
 void comdb2_set_sqlite_vdbe_dtprec(Vdbe *p);
 static int execute_sql_query_offload(struct sqlthdstate *,
                                      struct sqlclntstate *);
-static int record_query_cost(struct sql_thread *, struct sqlclntstate *);
 
 static int sql_debug_logf_int(struct sqlclntstate *clnt, const char *func,
                               int line, const char *fmt, va_list args)
@@ -5766,7 +5765,7 @@ static enum req_code read_req(struct sqlconn *conn)
 
 /* Called when a query is done, while all the cursors are still open.  Traverses
    the list of cursors and saves the query path and cost. */
-static int record_query_cost(struct sql_thread *thd, struct sqlclntstate *clnt)
+int record_query_cost(struct sql_thread *thd, struct sqlclntstate *clnt)
 {
     struct client_query_path_component *stats;
     int i;

@@ -2311,9 +2311,14 @@ static void lua_end_step(struct sqlclntstate *clnt, SP sp,
             clnt_query_cost(sp->thd, &cost, &prepMs);
             timeMs = time - pVdbe->luaStartTime + prepMs;
 
+            printf("%p %p\n", sp->thd, clnt->thd);
+            record_query_cost(clnt->thd->sqlthd, clnt);
+
             unsigned char fingerprint[FINGERPRINTSZ];
-            add_fingerprint(clnt, pStmt, sqlite3_sql(pStmt), zNormSql, cost,
-                            timeMs, prepMs, pVdbe->luaRows, NULL, fingerprint, 1); // TODO: Make work for query plans
+            struct string_ref *sql_ref = create_string_ref(sqlite3_sql(pStmt));
+            add_fingerprint(clnt, pStmt, sql_ref, zNormSql, cost,
+                            timeMs, prepMs, pVdbe->luaRows, NULL, fingerprint, 0);
+            put_ref(&sql_ref);
             if (clnt->rawnodestats)
                 add_fingerprint_to_rawstats(clnt->rawnodestats, fingerprint, cost, pVdbe->luaRows, timeMs);
 
@@ -2323,6 +2328,12 @@ static void lua_end_step(struct sqlclntstate *clnt, SP sp,
             clnt->spcost.rows += pVdbe->luaRows;
 
             pVdbe->fingerprint_added = 1;
+
+            struct query_path_component *qc = listc_rtl(&clnt->thd->sqlthd->query_stats);
+            while (qc) {
+                free(qc);
+                qc = listc_rtl(&clnt->thd->sqlthd->query_stats);
+            }
         }
 
         restore_thd_cost_and_reset(sp->thd, pVdbe);

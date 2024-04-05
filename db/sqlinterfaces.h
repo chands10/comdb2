@@ -68,6 +68,7 @@ enum {
 };
 
 struct sql_thread;
+int record_query_cost(struct sql_thread *thd, struct sqlclntstate *clnt);
 double query_cost(struct sql_thread *thd);
 void run_internal_sql(char *sql);
 void start_internal_sql_clnt(struct sqlclntstate *clnt);

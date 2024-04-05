@@ -55,8 +55,8 @@ function fastinit
 
     # fastinit
     for tbl in $(cat $iter.fastinit) ; do
-        echo "cdb2sql ${CDB2_OPTIONS} $db default \"truncate $tbl\""
-        cdb2sql ${CDB2_OPTIONS} $db default "truncate $tbl"
+        echo "cdb2sql testdb local \"truncate $tbl\""
+        cdb2sql testdb local "truncate $tbl"
     done
 
     return 0
@@ -128,7 +128,7 @@ for testcase in $files ; do
     else
 
         # Be verbose
-        cmd="cdb2sql -s ${CDB2_OPTIONS} $a_dbn default - < $testcase > $output 2>&1"
+        cmd="cdb2sql -s testdb local - < $testcase > $output 2>&1"
         echo $cmd
 
         # run command

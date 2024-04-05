@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 [[ -n "$3" ]] && exec >$3 2>&1
-
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 create table t {
 schema
 {
@@ -292,7 +291,7 @@ exec procedure test9('4')
 EOF
 
 
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 set transaction snapshot isolation
 delete from t where 1
 begin
@@ -303,7 +302,7 @@ rollback
 EOF
 
 
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 insert into t values(1,2)
 insert into t values(2,3)
 exec procedure test3('2', 'select i as column1, j as column2 from t order by column1')
@@ -352,7 +351,7 @@ select * from t order by i
 EOF
 
 
-cdb2sql $SP_OPTIONS - <<EOF
+cdb2sql -s testdb local - <<EOF
 create table prepare {$(cat prepare.csc2)}\$\$
 create procedure prepare version 'sptest' {$(cat prepare.lua)}\$\$
 put default procedure prepare 'sptest'
@@ -367,10 +366,10 @@ exec procedure close()
 create procedure bound version 'sptest' {$(cat bound.lua)}\$\$
 put default procedure bound 'sptest'
 EOF
-${TESTSBUILDDIR}/bound "$CDB2_CONFIG" $DBNAME
+/workspaces/comdb2/build/test/tools/bound "$CDB2_CONFIG" testdb
 
 
-cdb2sql $SP_OPTIONS - <<EOF
+cdb2sql -s testdb local - <<EOF
 create procedure blobliteral version 'sptest' {$(cat blobliteral.lua)}\$\$
 put default procedure blobliteral 'sptest'
 exec procedure blobliteral()
@@ -396,7 +395,7 @@ function sploop
     typeset cnt=0
     typeset rc=0
     while [[ $cnt -lt $iter ]] ; do
-        cdb2sql $SP_OPTIONS "exec procedure commitsp()"
+        cdb2sql -s testdb local "exec procedure commitsp()"
         rc=$?
         if [[ $rc != 0 ]]; then
             return $rc
@@ -405,12 +404,12 @@ function sploop
     done
     return $rc
 }
-cdb2sql $SP_OPTIONS - <<EOF
+cdb2sql -s testdb local - <<EOF
 create table commitsp {$(cat commitsp.csc2)}\$\$
 create procedure commitsp {$(cat commitsp.lua)}\$\$
 EOF
 # Insert a 1
-cdb2sql $SP_OPTIONS "insert into commitsp(a) values (1)"
+cdb2sql -s testdb local "insert into commitsp(a) values (1)"
 r=$?
 if [[ $r != 0 ]]; then
     echo "Unable to add a record!  rcode is $r"
@@ -424,7 +423,7 @@ done
 wait
 
 
-cdb2sql $SP_OPTIONS - <<EOF
+cdb2sql -s testdb local - <<EOF
 create table transactions {$(cat transactions.csc2)}\$\$
 create procedure transactions version 'sptest' {$(cat transactions.lua)}\$\$
 put default procedure transactions 'sptest'
@@ -484,7 +483,7 @@ select * from transactions order by i
 EOF
 
 
-cdb2sql $SP_OPTIONS - <<EOF
+cdb2sql -s testdb local - <<EOF
 create table nums {$(cat nums.csc2)}\$\$
 create procedure gen version 'sptest' {$(cat gen.lua)}\$\$
 put default procedure gen 'sptest'
@@ -499,7 +498,7 @@ select myavg(i) from nums
 EOF
 
 
-cdb2sql $SP_OPTIONS - <<EOF
+cdb2sql -s testdb local - <<EOF
 create table strings {$(cat strings.csc2)}\$\$
 create procedure json_extract {$(cat json_extract.lua)}\$\$
 create lua scalar function json_extract
@@ -510,7 +509,7 @@ drop lua scalar function json_extract
 EOF
 
 
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 #    _       _     _   ____  ____
 #   / \   __| | __| | / ___||  _ \ ___
 #  / _ \ / _` |/ _` | \___ \| |_) / __|
@@ -684,24 +683,24 @@ EOF
 #|  \| |/ _ \ \ /\ / / \___ \ / _ \/ __/ __| |/ _ \| '_ \
 #| |\  |  __/\ V  V /   ___) |  __/\__ \__ \ | (_) | | | |
 #|_| \_|\___| \_/\_/   |____/ \___||___/___/_|\___/|_| |_|
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 select "SPVERSION APPLIES TO ONGOING SESSION ONLY" as testcase
 set spversion sp4 2
 exec procedure sp4()
 EOF
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 exec procedure sp4()
 set spversion sp4 '8eb31cbc-f341-433b-9110-53713e0dd257'
 exec procedure sp4()
 EOF
-cdb2sql $SP_OPTIONS "exec procedure sp4()"
+cdb2sql -s testdb local "exec procedure sp4()"
 #     _       __             _ _
 #  __| | ___ / _| __ _ _   _| | |_ ___ _ __
 # / _` |/ _ \ |_ / _` | | | | | __/ __| '_ \
 #| (_| |  __/  _| (_| | |_| | | |_\__ \ |_) |
 # \__,_|\___|_|  \__,_|\__,_|_|\__|___/ .__/
 #                                     |_|
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 select 'SET INVALID DEFAULTS - VERSIONED SPs HAVE CHECKS' as testcase
 put default procedure sp2000 '2000'
 put default procedure sp1 '2000'
@@ -711,14 +710,14 @@ put default procedure sp1 2000
 EOF
 
 
-cdb2sql $SP_OPTIONS - <<EOF
+cdb2sql -s testdb local - <<EOF
 create table dup {$(cat dup.csc2)}\$\$
 create procedure dup {$(cat dup.lua)}\$\$
 exec procedure dup()
 EOF
 
 
-cdb2sql $SP_OPTIONS - <<EOF
+cdb2sql -s testdb local - <<EOF
 create table foraudit {$(cat foraudit.csc2)}\$\$
 create table audit {$(cat audit.csc2)}\$\$
 create procedure audit version 'sptest' {$(cat audit.lua)}\$\$
@@ -734,28 +733,33 @@ EOF
 for ((i=0;i<500;++i)); do
     echo "drop lua consumer cons0"
     echo "create lua consumer cons0 on (table foraudit for insert and update and delete)"
-done | cdb2sql $SP_OPTIONS - > /dev/null
+done | cdb2sql -s testdb local - > /dev/null
 
 #START CONSUMERS
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 set transaction snapisol
 exec procedure cons0(true)
 EOF
-cdb2sql $SP_OPTIONS - <<'EOF' > /dev/null 2>&1 &
+cdb2sql -s testdb local - <<'EOF' > /dev/null 2>&1 &
 set transaction blocksql
 exec procedure cons0(true)
 EOF
-cdb2sql $SP_OPTIONS - <<'EOF' > /dev/null 2>&1 &
+cdb2sql -s testdb local - <<'EOF' > /dev/null 2>&1 &
 set transaction blocksql
 exec procedure cons1(false)
 EOF
 #GENERATE DATA
-cdb2sql $SP_OPTIONS "exec procedure gen('foraudit', 500)"
+cdb2sql -s testdb local "exec procedure gen('foraudit', 500)"
 #DELETE DATA
-cdb2sql $SP_OPTIONS "delete from foraudit where 1"
+cdb2sql -s testdb local "delete from foraudit where 1"
 sleep 20 # Wait for queues to drain
+<<<<<<< Updated upstream
 cdb2sql $SP_OPTIONS - <<'EOF'
 select * from comdb2_triggers order by name, type, tbl_name, event, col
+=======
+cdb2sql -s testdb local - <<'EOF'
+select * from comdb2_triggers order by name, type, tbl_name, event
+>>>>>>> Stashed changes
 drop lua trigger audit
 drop lua consumer cons0
 drop lua consumer cons1
@@ -764,7 +768,7 @@ select added_by, type, count(*) from audit group by added_by, type
 EOF
 wait
 
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 create table for_trigger1 {schema{
   int i
   int j
@@ -782,10 +786,10 @@ create lua consumer b on (table for_trigger1 for insert of i, j and update of j 
 select * from comdb2_triggers order by name, type, tbl_name, event, col
 EOF
 
-cdb2sql $SP_OPTIONS "select name, version, client_versioned, \"default\" from comdb2_procedures order by name, version, client_versioned, \"default\""
+cdb2sql -s testdb local "select name, version, client_versioned, \"default\" from comdb2_procedures order by name, version, client_versioned, \"default\""
 
 #verify commands
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 select 1
 exec procedure sys.cmd.verify("t1")
 select 2
@@ -799,7 +803,7 @@ exec procedure sys.cmd.verify("nonexistent")
 select 6
 EOF
 
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 create procedure tmptbls version 'sptest' {
 local function func(tbls)
     for i, tbl in ipairs(tbls) do
@@ -831,7 +835,7 @@ exec procedure tmptbls()
 exec procedure tmptbls()
 EOF
 
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 drop table if exists t
 drop table if exists u
 create table u {
@@ -962,7 +966,7 @@ put default procedure rcodes 'sptest'
 exec procedure rcodes()
 EOF
 
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 create procedure reset_test version 'sptest' {
 local total = 100
 local function setup()
@@ -1032,25 +1036,25 @@ EOF
 
 
 #TEST RUNNING PREPARED STMT IN A LOOP
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 drop table if exists t
 create table t {schema{int i}keys{"i"=i}}
 EOF
 
 #INSERT 50K rows
-cdb2sql $SP_OPTIONS "insert into t(i) values $(for((i=00000;i<10000;++i));do echo -n "${COMMA}(${i})";COMMA=",";done)" > /dev/null &
+cdb2sql -s testdb local "insert into t(i) values $(for((i=00000;i<10000;++i));do echo -n "${COMMA}(${i})";COMMA=",";done)" > /dev/null &
 sleep 0.25
-cdb2sql $SP_OPTIONS "insert into t(i) values $(for((i=10000;i<20000;++i));do echo -n "${COMMA}(${i})";COMMA=",";done)" > /dev/null &
+cdb2sql -s testdb local "insert into t(i) values $(for((i=10000;i<20000;++i));do echo -n "${COMMA}(${i})";COMMA=",";done)" > /dev/null &
 sleep 0.25
-cdb2sql $SP_OPTIONS "insert into t(i) values $(for((i=20000;i<30000;++i));do echo -n "${COMMA}(${i})";COMMA=",";done)" > /dev/null &
+cdb2sql -s testdb local "insert into t(i) values $(for((i=20000;i<30000;++i));do echo -n "${COMMA}(${i})";COMMA=",";done)" > /dev/null &
 sleep 0.25
-cdb2sql $SP_OPTIONS "insert into t(i) values $(for((i=30000;i<40000;++i));do echo -n "${COMMA}(${i})";COMMA=",";done)" > /dev/null &
+cdb2sql -s testdb local "insert into t(i) values $(for((i=30000;i<40000;++i));do echo -n "${COMMA}(${i})";COMMA=",";done)" > /dev/null &
 sleep 0.25
-cdb2sql $SP_OPTIONS "insert into t(i) values $(for((i=40000;i<50000;++i));do echo -n "${COMMA}(${i})";COMMA=",";done)" > /dev/null &
+cdb2sql -s testdb local "insert into t(i) values $(for((i=40000;i<50000;++i));do echo -n "${COMMA}(${i})";COMMA=",";done)" > /dev/null &
 wait
 
 #LOOKUP EACH INDIVIDUAL ROW USING SAME STMT
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 create procedure binder version 'sptest' {
 local function main()
     db:setmaxinstructions(10000000)
@@ -1094,10 +1098,10 @@ put default procedure binder 'sptest'
 exec procedure binder()
 EOF
 
-cdb2sql $SP_OPTIONS "select name, version, client_versioned, \"default\" from comdb2_procedures order by name, version, client_versioned, \"default\""
+cdb2sql -s testdb local "select name, version, client_versioned, \"default\" from comdb2_procedures order by name, version, client_versioned, \"default\""
 
-${TESTSBUILDDIR}/utf8 "$CDB2_CONFIG" $DBNAME
-cdb2sql $SP_OPTIONS - <<'EOF'
+/workspaces/comdb2/build/tests/tools/utf8 "$CDB2_CONFIG" testdb
+cdb2sql -s testdb local - <<'EOF'
 create procedure json_utf8 version 'sptest' {
 local function main(strategy)
     db:num_columns(3)
@@ -1283,9 +1287,9 @@ local function main()
 end}$$
 EOF
 
-cdb2sql $SP_OPTIONS "exec procedure tmp_tbl_and_thread()" | sort
+cdb2sql -s testdb local "exec procedure tmp_tbl_and_thread()" | sort
 
-cdb2sql $SP_OPTIONS - > /dev/null 2>&1 <<'EOF'
+cdb2sql -s testdb local - > /dev/null 2>&1 <<'EOF'
 create table no_ddl_t1(x INT)$$
 create table no_ddl_t2(x BLOB)$$
 create table no_ddl_t3(x INT)$$
@@ -1299,7 +1303,7 @@ create lua consumer no_ddl_proc1 on (table no_ddl_t1 for insert)
 create table comdb2_logical_cron (name cstring(128) primary key, value int)$$
 EOF
 
-cdb2sql $SP_OPTIONS - <<'EOF'
+cdb2sql -s testdb local - <<'EOF'
 create procedure no_ddl_test1 version 'sp_no_ddl_test1' {
 local function main()
     local t = db:table("no_ddl_tmp1", {{"x", "int"}})
@@ -1368,7 +1372,7 @@ put default procedure no_ddl_test1 'sp_no_ddl_test1'
 exec procedure no_ddl_test1()
 EOF
 
-cdb2sql $SP_OPTIONS - > /dev/null <<'EOF'
+cdb2sql -s testdb local - > /dev/null <<'EOF'
 create procedure json_emoji version 'sptest' {
 local function main(emoji)
     local tbl = {}
@@ -1377,9 +1381,9 @@ local function main(emoji)
     db:emit(json)
 end}$$
 EOF
-cdb2sql $SP_OPTIONS "exec procedure json_emoji('hello world 😁')"
+cdb2sql -s testdb local "exec procedure json_emoji('hello world 😁')"
 
-cdb2sql $SP_OPTIONS - > /dev/null <<'EOF'
+cdb2sql -s testdb local - > /dev/null <<'EOF'
 create procedure escape_controls version 'sptest' {
 local function main()
     local tbl = {control=""}
@@ -1387,6 +1391,7 @@ local function main()
     db:emit(json)
 end}$$
 EOF
+<<<<<<< Updated upstream
 cdb2sql $SP_OPTIONS "exec procedure escape_controls()"
 
 cdb2sql $SP_OPTIONS - > /dev/null <<'EOF'
@@ -1397,3 +1402,6 @@ local function main()
 end}$$
 EOF
 cdb2sql $SP_OPTIONS "exec procedure to_string_meta_method()"
+=======
+cdb2sql -s testdb local "exec procedure escape_controls()"
+>>>>>>> Stashed changes

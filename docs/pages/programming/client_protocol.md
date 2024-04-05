@@ -331,6 +331,7 @@ enum CDB2_ErrorCodes {
 
     THREADPOOL_INTERNAL     = -20;  /* some error in threadpool code */
     READONLY                = -21;
+    ANALYZE_ALREADY_RUNNING = -22;
 
     NOMASTER                = -101;
     UNTAGGED_DATABASE       = -102;

@@ -793,6 +793,7 @@ public class Comdb2Connection implements Connection {
             case Constants.Errors.CDB2ERR_DBCREATE_FAILED:
             case Constants.Errors.CDB2ERR_DBOP_FAILED:
             case Constants.Errors.CDB2ERR_THREADPOOL_INTERNAL:
+            case Constants.Errors.CDB2ERR_ANALYZE_ALREADY_RUNNING:
             case Constants.Errors.CDB2ERR_ASYNCERR:
             case Constants.Errors.CDB2ERR_RECORD_OUT_OF_RANGE:
             case Constants.Errors.CDB2ERR_INVALID_ID:

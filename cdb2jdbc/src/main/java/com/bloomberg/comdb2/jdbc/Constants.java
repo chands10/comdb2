@@ -70,6 +70,8 @@ public class Constants {
         /* Trying a write query through read only proxy. */
         public static final int CDB2ERR_READONLY = -21;
 
+        public static final int CDB2ERR_ANALYZE_ALREADY_RUNNING = -22;
+
         public static final int CDB2ERR_NOMASTER = -101;
         public static final int CDB2ERR_NOTSERIAL = 230;
         public static final int CDB2ERR_DIST_ABORT = 430;

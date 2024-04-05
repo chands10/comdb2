@@ -1622,9 +1622,9 @@ void comdb2analyze(Parse* pParse, int opt, Token* nm, Token* lnm, int pc, int on
     if (comdb2AuthenticateUserOp(pParse))
         return;
 
-    bdb_state_type *bdb_state = thedb->bdb_env;
-    if (only_leader && !bdb_amimaster(bdb_state)) {
-        setError(pParse, SQLITE_ERROR, "Should only run exclusive_analyze on leader node");
+    // bdb_state_type *bdb_state = thedb->bdb_env;
+    if (1) { // only_leader && !bdb_amimaster(bdb_state)) {
+        setError(pParse, SQLITE_EXCLUSIVE_ANALYZE_BAD_NODE, "Should only run exclusive_analyze on leader node");
         return;
     }
 

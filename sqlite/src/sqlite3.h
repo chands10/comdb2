@@ -488,6 +488,7 @@ SQLITE_API int sqlite3_exec(
 #define SQLITE_NO_TEMPTABLES             214 /* temporary tables disallowed */
 #define SQLITE_NO_TABLESCANS             215 /* table scans disallowed */
 #define SQLITE_ANALYZE_ALREADY_RUNNING   216 /* analyze is already running on some table */
+#define SQLITE_EXCLUSIVE_ANALYZE_BAD_NODE 217 /* exclusive analyze is not run on the leader node */
 #endif /* defined(SQLITE_BUILDING_FOR_COMDB2) */
 /* end-of-error-codes */
 

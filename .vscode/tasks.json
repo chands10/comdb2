@@ -1,0 +1,130 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Salil (valgrind) run database",
+      "type": "shell",
+      "linux": {
+        "command": "valgrind",
+        "args": [
+          "--leak-check=full",
+          "--log-file=$HOME/log.log",
+          "${command:cmake.launchTargetPath}",
+          "--lrl",
+          "/home/salil/db/testdb.lrl",
+          "testdb"
+        ]
+      },
+      "isBackground": true,
+      "problemMatcher": [
+        {
+          "pattern": [
+            {
+              "regexp": ".",
+              "file": 1,
+              "location": 2,
+              "message": 3
+            }
+          ],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": ".",
+            "endsPattern": ".",
+          }
+        }
+      ]
+    },
+    {
+      "label": "refresh lrl",
+      "type": "shell",
+      "linux": {
+        "command": "/home/salil/reset.sh"
+      },
+      "osx": {
+        "command": "/home/salil/reset.sh"
+      }
+    },
+    {
+      "label": "rebuild db using lrl",
+      "type": "shell",
+      "linux": {
+        "command": "${command:cmake.launchTargetPath}",
+        "args": [
+          "--create",
+          "mohitdb",
+          "--lrl",
+          "/home/heisengarg/dbs/mohitdbref/mohitdb.lrl"
+        ]
+      },
+      "osx": {
+        "command": "${command:cmake.launchTargetPath}",
+        "args": [
+          "--create",
+          "mohitdb",
+          "--lrl",
+          "/Users/mgarg51/Development/comdb2-dbs/mohitdbref/mohitdb.lrl"
+        ]
+      },
+      "dependsOn": "refresh lrl"
+    },
+    {
+      "label": "lookup",
+      "type": "shell",
+      "command": "grep -rnIE --color=always ${input:token} ${workspaceFolder}/${input:workdir} | less -R",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "(valgrind) run database",
+      "type": "shell",
+      "linux": {
+        "command": "valgrind",
+        "args": [
+          "--vgdb=yes",
+          "--vgdb-error=0",
+          "--gen-suppressions=all",
+          "--suppressions=/workspaces/comdb2/comdb2_val.supp",
+          "${command:cmake.launchTargetPath}",
+          "--lrl",
+          "/home/heisengarg/dbs/mohitdbref/mohitdb.lrl",
+          "mohitdb"
+        ]
+      },
+      "isBackground": true,
+      "problemMatcher": [
+        {
+          "pattern": [
+            {
+              "regexp": ".",
+              "file": 1,
+              "location": 2,
+              "message": 3
+            }
+          ],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": ".",
+            "endsPattern": ".",
+          }
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "token",
+      "description": "input token for lookup",
+      "type": "promptString"
+    },
+    {
+      "id": "workdir",
+      "description": "input for lookup location",
+      "default": "",
+      "type": "promptString"
+    }
+  ]
+}

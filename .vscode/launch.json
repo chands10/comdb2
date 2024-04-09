@@ -1,0 +1,336 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Salil Start Database",
+        // "type": "lldb",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${command:cmake.launchTargetPath}",
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [],
+        "osx": {
+          "MIMode": "lldb",
+          "args": [
+            "--lrl",
+            "/Users/schandra107/db/testdb.lrl",
+            "testdb"
+          ]
+        },
+        "linux": {
+          "MIMode": "gdb",
+          "args": [
+            "--lrl",
+            "/home/schandra107/db/testdb.lrl",
+            "testdb"
+          ]
+        },
+        // "MIMode": "lldb",
+        // "args": [
+          // "--lrl",
+          // "/Users/schandra107/db/testdb.lrl",
+          // "testdb"
+        // ],
+        "setupCommands": [
+          {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+          },
+          {
+            "description": "Enable all-exceptions",
+            "text": "catch throw",
+            "ignoreFailures": true
+          }
+        ],
+        "internalConsoleOptions": "neverOpen"
+      },
+      {
+        "name": "Salil Valgrind Start Database",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${command:cmake.launchTargetPath}",
+        "targetArchitecture": "x64",
+        "customLaunchSetupCommands": [
+          {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+          },
+          {
+            "description": "Attach to valgrind",
+            "text": "target remote | /usr/lib/valgrind/../../bin/vgdb",
+            "ignoreFailures": false
+          }
+        ],
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [],
+        "externalConsole": false,
+        "MIMode": "gdb",
+        "preLaunchTask": "Salil (valgrind) run database"
+      },
+      {
+        "name": "Salil Launch Create using LRL",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${command:cmake.launchTargetPath}",
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [],
+        "osx": {
+          "MIMode": "lldb",
+          "args": [
+            "--create",
+            "testdb2",
+            "--lrl",
+            "/home/salil/db2/testdb2.lrl"
+          ]
+        },
+        "linux": {
+          "MIMode": "gdb",
+          "args": [
+            "--create",
+            "testdb2",
+            "--lrl",
+            "/home/salil/db2/testdb2.lrl"
+          ]
+        },
+        "setupCommands": [
+          {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+          },
+          {
+            "description": "Enable all-exceptions",
+            "text": "catch throw",
+            "ignoreFailures": true
+          }
+        ],
+        "preLaunchTask": "refresh lrl"
+      },
+      {
+        "name": "(gdb) Launch Create",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${command:cmake.launchTargetPath}",
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [],
+        "osx": {
+          "MIMode": "lldb",
+          "args": [
+            "--create",
+            "--dir",
+            "/Users/mgarg51/Development/comdb2-dbs/mohitdb/",
+            "mohitdb"
+          ]
+        },
+        "linux": {
+          "MIMode": "gdb",
+          "args": [
+            "--create",
+            "--dir",
+            "/home/heisengarg/dbs/mohitdb/",
+            "mohitdb"
+          ]
+        },
+        "setupCommands": [
+          {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+          },
+          {
+            "description": "Enable all-exceptions",
+            "text": "catch throw",
+            "ignoreFailures": true
+          }
+        ]
+      },
+      {
+        "name": "(gdb) Launch Create using LRL",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${command:cmake.launchTargetPath}",
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [],
+        "osx": {
+          "MIMode": "lldb",
+          "args": [
+            "--create",
+            "mohitdb",
+            "--lrl",
+            "/Users/mgarg51/Development/comdb2-dbs/mohitdbref/mohitdb.lrl"
+          ]
+        },
+        "linux": {
+          "MIMode": "gdb",
+          "args": [
+            "--create",
+            "mohitdb",
+            "--lrl",
+            "/home/heisengarg/dbs/mohitdbref/mohitdb.lrl"
+          ]
+        },
+        "setupCommands": [
+          {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+          },
+          {
+            "description": "Enable all-exceptions",
+            "text": "catch throw",
+            "ignoreFailures": true
+          }
+        ],
+        "preLaunchTask": "refresh lrl"
+      },
+      {
+        "name": "(gdb) Launch Start Database",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "{command:cmake.launchTargetPath}",
+  //      "args": [
+  //        "--lrl",
+  //        "/Users/mgarg51/Development/comdb2-dbs/mohitdbref/mohitdb.lrl",
+  //        "mohitdb"
+  //      ],
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [],
+        "osx": {
+          "MIMode": "lldb",
+          "args": [
+            "--lrl",
+            "/Users/mgarg51/Development/comdb2-dbs/mohitdbref/mohitdb.lrl",
+            "mohitdb"
+          ]
+        },
+        "linux": {
+          "MIMode": "gdb",
+          "args": [
+            "--lrl",
+            "/home/heisengarg/dbs/mohitdbref/mohitdb.lrl",
+            "mohitdb"
+          ]
+        },
+        "setupCommands": [
+          {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+          },
+          {
+            "description": "Enable all-exceptions",
+            "text": "catch throw",
+            "ignoreFailures": true
+          }
+        ],
+        "internalConsoleOptions": "neverOpen"
+      },
+      {
+        "name": "(gdb) Create and then Launch Start Database",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${command:cmake.launchTargetPath}",
+        "args": [
+          "--lrl",
+          "/Users/mgarg51/Development/comdb2-dbs/mohitdbref/mohitdb.lrl",
+          "mohitdb"
+        ],
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [],
+        "osx": {
+          "MIMode": "lldb",
+          "args": [
+            "--lrl",
+            "/Users/mgarg51/Development/comdb2-dbs/mohitdbref/mohitdb.lrl",
+            "mohitdb"
+          ]
+        },
+        "linux": {
+          "MIMode": "gdb",
+          "args": [
+            "--lrl",
+            "/home/heisengarg/dbs/mohitdbref/mohitdb.lrl",
+            "mohitdb"
+          ]
+        },
+        "setupCommands": [
+          {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+          },
+          {
+            "description": "Enable all-exceptions",
+            "text": "catch throw",
+            "ignoreFailures": true
+          }
+        ],
+        "internalConsoleOptions": "neverOpen",
+        "preLaunchTask": "rebuild db using lrl"
+      },
+      {
+        "name": "(gdb) valgrind launch start database",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${command:cmake.launchTargetPath}",
+        "targetArchitecture": "x64",
+        "customLaunchSetupCommands": [
+          {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+          },
+          {
+            "description": "Attach to valgrind",
+            "text": "target remote | /usr/lib/valgrind/../../bin/vgdb",
+            "ignoreFailures": false
+          }
+        ],
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [],
+        "externalConsole": false,
+        "MIMode": "gdb",
+        "preLaunchTask": "(valgrind) run database"
+      },
+      {
+        "name": "(gdb) debug core",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${command:cmake.launchTargetPath}",
+        "targetArchitecture": "x64",
+        "customLaunchSetupCommands": [
+          {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+          }
+        ],
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [],
+        "externalConsole": false,
+        "MIMode": "gdb",
+        "coreDumpPath": "${input:coreFileName}"
+      }
+    ],
+    "inputs": [
+      {
+        "id": "coreFileName",
+        "type": "promptString",
+        "description": "Enter core file path"
+      }
+    ]
+  }

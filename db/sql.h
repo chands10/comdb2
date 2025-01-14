@@ -1208,7 +1208,7 @@ struct connection_info {
     int64_t sql_since_reset;
     int64_t num_resets;
     int64_t steps;
-    cdb2_client_intv_ds_t time_in_state; 
+    cdb2_client_intv_ds_t time_in_state;
     cdb2_client_datetime_t connect_time;
     cdb2_client_datetime_t last_reset_time;
     char *state;
@@ -1220,7 +1220,7 @@ struct connection_info {
     char *common_name; /* common name in the certificate */
     char common_name_str[ub_common_name];
 
-    /* latched in sqlinterfaces, not returned */ 
+    /* latched in sqlinterfaces, not returned */
     time_t connect_time_int;
     time_t last_reset_time_int;
     int node_int;
@@ -1463,7 +1463,7 @@ struct query_plan_item {
 };
 int free_query_plan_hash(hash_t *query_plan_hash);
 int clear_query_plans();
-void add_query_plan(const struct client_query_stats *query_stats, int64_t cost, int64_t nrows,
+void add_query_plan(sqlite3_stmt *stmt, int64_t cost, int64_t nrows,
                     struct fingerprint_track *t);
 
 /* Connection tracking */

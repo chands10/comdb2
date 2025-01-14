@@ -20,32 +20,48 @@
 #include <math.h>
 #include <ctrace.h>
 #include <inttypes.h>
+#include <sqlexplain.h>
+#include <vdbeInt.h>
 
 int gbl_query_plan_max_plans = 20;
 extern double gbl_query_plan_percentage;
 extern hash_t *gbl_fingerprint_hash;
 extern pthread_mutex_t gbl_fingerprint_hash_mu;
 
-static char *form_query_plan(const struct client_query_stats *query_stats)
+static char *form_query_plan(sqlite3_stmt *stmt)
 {
-    struct strbuf *query_plan_buf;
-    const struct client_query_path_component *c;
     char *query_plan;
+    Op *op;
+    struct cursor_info c;
+    Vdbe *v = (Vdbe *)stmt;
+    char *operation;
 
-    if (query_stats->n_components == 0) {
+    if (!v)
         return NULL;
-    }
 
-    query_plan_buf = strbuf_new();
-    for (int i = 0; i < query_stats->n_components; i++) {
-        if (i > 0) {
+    struct strbuf *query_plan_buf = strbuf_new();
+    for (int pc = 0; pc < v->nOp; pc++) {
+        op = &v->aOp[pc];
+        if (op->opcode == OP_OpenRead)
+            operation = "read";
+        else if (op->opcode == OP_ReopenIdx)
+            operation = "(re)read";
+        else if (op->opcode == OP_OpenRead_Record)
+            operation = "read";
+        else if (op->opcode == OP_OpenWrite)
+            operation = "write";
+        else
+            continue;
+
+        if (strbuf_len(query_plan_buf) > 0)
             strbuf_append(query_plan_buf, ", ");
-        }
-        c = &query_stats->path_stats[i];
-        strbuf_appendf(query_plan_buf, "table %s index %d", c->table, c->ix);
+
+        strbuf_appendf(query_plan_buf, "open %s cursor on ", operation);
+        describe_cursor(v, pc, &c);
+        print_cursor_description(query_plan_buf, &c, 0);
     }
 
-    query_plan = strdup((char *)strbuf_buf(query_plan_buf));
+    query_plan = strbuf_len(query_plan_buf) > 0 ? strdup((char *)strbuf_buf(query_plan_buf)) : NULL;
     strbuf_free(query_plan_buf);
     return query_plan;
 }
@@ -130,10 +146,10 @@ static void add_query_plan_int(struct fingerprint_track *t, const char *query_pl
 
 // assumed to have fingerprint lock
 // assume t->query_plan_hash is not NULL
-void add_query_plan(const struct client_query_stats *query_stats, int64_t cost, int64_t nrows,
+void add_query_plan(sqlite3_stmt *stmt, int64_t cost, int64_t nrows,
                     struct fingerprint_track *t)
 {
-    char *query_plan = form_query_plan(query_stats);
+    char *query_plan = form_query_plan(stmt);
     if (!query_plan || nrows <= 0) { // can't calculate cost per row if 0 rows
         return;
     }

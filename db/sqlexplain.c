@@ -190,6 +190,7 @@ int print_cursor_description(strbuf *out, struct cursor_info *cinfo, int append_
         }
         strbuf_appendf(out, "temp_%d", cinfo->tbl);
     } else if (cinfo->tbl < 0) {
+        logmsg(LOGMSG_ERROR,"cinfo->tbl is less than 0!\n");
         strbuf_append(out, "table \"???\"");
     } else {
         struct dbtable *db;
@@ -378,6 +379,7 @@ void describe_cursor(Vdbe *v, int pc, struct cursor_info *cur)
         if (db != NULL) {
             cur->tbl = db->dbs_idx;
         } else {
+            logmsg(LOGMSG_ERROR, "describe_cursor: db is NULL!\n");
             cur->ix = -1;
             cur->tbl = -1;
         }

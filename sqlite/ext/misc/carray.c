@@ -417,6 +417,11 @@ static sqlite3_module carrayModule = {
   0,                         /* xRollback */
   0,                         /* xFindMethod */
   0,                         /* xRename */
+  0,                         /* xSavepoint */
+  0,                         /* xRelease */
+  0,                         /* xRollbackTo */
+  0,                         /* xShadow */
+  0                          /* xIntegrity */
 #if defined(SQLITE_BUILDING_FOR_COMDB2)
   .access_flag = (CDB2_ALLOW_ALL|CDB2_HIDDEN),
 #endif /* defined(SQLITE_BUILDING_FOR_COMDB2) */

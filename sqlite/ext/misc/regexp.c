@@ -187,7 +187,7 @@ static unsigned re_next_char(ReInput *p){
       c = (c&0x0f)<<12 | ((p->z[p->i]&0x3f)<<6) | (p->z[p->i+1]&0x3f);
       p->i += 2;
       if( c<=0x7ff || (c>=0xd800 && c<=0xdfff) ) c = 0xfffd;
-    }else if( (c&0xf8)==0xf0 && p->i+3<p->mx && (p->z[p->i]&0xc0)==0x80
+    }else if( (c&0xf8)==0xf0 && p->i+2<p->mx && (p->z[p->i]&0xc0)==0x80
            && (p->z[p->i+1]&0xc0)==0x80 && (p->z[p->i+2]&0xc0)==0x80 ){
       c = (c&0x07)<<18 | ((p->z[p->i]&0x3f)<<12) | ((p->z[p->i+1]&0x3f)<<6)
                        | (p->z[p->i+2]&0x3f);
@@ -601,7 +601,7 @@ static const char *re_subcompile_string(ReCompiled *p){
         break;
       }
       case '[': {
-        int iFirst = p->nState;
+        unsigned int iFirst = p->nState;
         if( rePeek(p)=='^' ){
           re_append(p, RE_OP_CC_EXC, 0);
           p->sIn.i++;
@@ -625,7 +625,7 @@ static const char *re_subcompile_string(ReCompiled *p){
           if( rePeek(p)==']' ){ p->sIn.i++; break; }
         }
         if( c==0 ) return "unclosed '['";
-        p->aArg[iFirst] = p->nState - iFirst;
+        if( p->nState>iFirst ) p->aArg[iFirst] = p->nState - iFirst;
         break;
       }
       case '\\': {
@@ -665,7 +665,8 @@ static const char *re_subcompile_string(ReCompiled *p){
 #if defined(SQLITE_BUILDING_FOR_COMDB2)
 void re_free(ReCompiled *pRe){
 #else /* defined(SQLITE_BUILDING_FOR_COMDB2) */
-void re_free(ReCompiled *pRe){
+static void re_free(void *p){
+  ReCompiled *pRe = (ReCompiled*)p;
 #endif /* defined(SQLITE_BUILDING_FOR_COMDB2) */
   if( pRe ){
     sqlite3_free(pRe->aOp);
@@ -683,7 +684,7 @@ void re_free(ReCompiled *pRe){
 #if defined(SQLITE_BUILDING_FOR_COMDB2)
 const char *re_compile(ReCompiled **ppRe, const char *zIn, int noCase){
 #else /* defined(SQLITE_BUILDING_FOR_COMDB2) */
-const char *re_compile(ReCompiled **ppRe, const char *zIn, int noCase){
+static const char *re_compile(ReCompiled **ppRe, const char *zIn, int noCase){
 #endif /* defined(SQLITE_BUILDING_FOR_COMDB2) */
   ReCompiled *pRe;
   const char *zErr;
@@ -726,15 +727,15 @@ const char *re_compile(ReCompiled **ppRe, const char *zIn, int noCase){
   ** one or more matching characters, enter those matching characters into
   ** zInit[].  The re_match() routine can then search ahead in the input 
   ** string looking for the initial match without having to run the whole
-  ** regex engine over the string.  Do not worry able trying to match
+  ** regex engine over the string.  Do not worry about trying to match
   ** unicode characters beyond plane 0 - those are very rare and this is
   ** just an optimization. */
   if( pRe->aOp[0]==RE_OP_ANYSTAR && !noCase ){
     for(j=0, i=1; j<(int)sizeof(pRe->zInit)-2 && pRe->aOp[i]==RE_OP_MATCH; i++){
       unsigned x = pRe->aArg[i];
-      if( x<=127 ){
+      if( x<=0x7f ){
         pRe->zInit[j++] = (unsigned char)x;
-      }else if( x<=0xfff ){
+      }else if( x<=0x7ff ){
         pRe->zInit[j++] = (unsigned char)(0xc0 | (x>>6));
         pRe->zInit[j++] = 0x80 | (x&0x3f);
       }else if( x<=0xffff ){
@@ -817,6 +818,7 @@ static void re_bytecode_func(
   int i;
   int n;
   char *z;
+  (void)argc;
 
   zPattern = (const char*)sqlite3_value_text(argv[0]);
   if( zPattern==0 ) return;
@@ -874,18 +876,18 @@ int sqlite3_regexp_init(
   SQLITE_EXTENSION_INIT2(pApi);
   (void)pzErrMsg;  /* Unused */
   rc = sqlite3_create_function(db, "regexp", 2, 
-                            SQLITE_UTF8|/*SQLITE_INNOCUOUS|*/SQLITE_DETERMINISTIC,
+                            SQLITE_UTF8|SQLITE_INNOCUOUS|SQLITE_DETERMINISTIC,
                             0, re_sql_func, 0, 0);
   if( rc==SQLITE_OK ){
     /* The regexpi(PATTERN,STRING) function is a case-insensitive version
     ** of regexp(PATTERN,STRING). */
     rc = sqlite3_create_function(db, "regexpi", 2,
-                            SQLITE_UTF8|/*SQLITE_INNOCUOUS|*/SQLITE_DETERMINISTIC,
+                            SQLITE_UTF8|SQLITE_INNOCUOUS|SQLITE_DETERMINISTIC,
                             (void*)db, re_sql_func, 0, 0);
 #if defined(SQLITE_DEBUG)
     if( rc==SQLITE_OK ){
       rc = sqlite3_create_function(db, "regexp_bytecode", 1,
-                            SQLITE_UTF8|/*SQLITE_INNOCUOUS|*/SQLITE_DETERMINISTIC,
+                            SQLITE_UTF8|SQLITE_INNOCUOUS|SQLITE_DETERMINISTIC,
                             0, re_bytecode_func, 0, 0);
     }
 #endif /* SQLITE_DEBUG */

@@ -124,6 +124,7 @@ static int completionConnect(
 #define COMPLETION_COLUMN_WHOLELINE 2  /* Entire line seen so far */
 #define COMPLETION_COLUMN_PHASE     3  /* ePhase - used for debugging only */
 
+  sqlite3_vtab_config(db, SQLITE_VTAB_INNOCUOUS);
   rc = sqlite3_declare_vtab(db,
       "CREATE TABLE x("
       "  candidate TEXT,"
@@ -254,7 +255,7 @@ static int completionNext(sqlite3_vtab_cursor *cur){
             const char *zDb = (const char*)sqlite3_column_text(pS2, 1);
             zSql = sqlite3_mprintf(
                "%z%s"
-               "SELECT name FROM \"%w\".sqlite_master",
+               "SELECT name FROM \"%w\".sqlite_schema",
                zSql, zSep, zDb
             );
             if( zSql==0 ) return SQLITE_NOMEM;
@@ -285,8 +286,8 @@ static int completionNext(sqlite3_vtab_cursor *cur){
             const char *zDb = (const char*)sqlite3_column_text(pS2, 1);
             zSql = sqlite3_mprintf(
                "%z%s"
-               "SELECT pti.name FROM \"%w\".sqlite_master AS sm"
-                       " JOIN pragma_table_info(sm.name,%Q) AS pti"
+               "SELECT pti.name FROM \"%w\".sqlite_schema AS sm"
+                       " JOIN pragma_table_xinfo(sm.name,%Q) AS pti"
                " WHERE sm.type='table'",
                zSql, zSep, zDb, zDb
             );
@@ -301,7 +302,6 @@ static int completionNext(sqlite3_vtab_cursor *cur){
         iCol = 0;
 #if defined(SQLITE_BUILDING_FOR_COMDB2)
         pCur->j = 0;
-
         eNextPhase = COMPLETION_FUNCTIONS;
 #else /* defined(SQLITE_BUILDING_FOR_COMDB2) */
         eNextPhase = COMPLETION_EOF;
@@ -318,7 +318,7 @@ static int completionNext(sqlite3_vtab_cursor *cur){
         iCol = 0;
         pCur->j = 0;
         eNextPhase = COMPLETION_EOF;
-        break;
+        break; 
       }
 #endif /* defined(SQLITE_BUILDING_FOR_COMDB2) */
 #if defined(SQLITE_BUILDING_FOR_COMDB2_EXAMPLE)
@@ -554,7 +554,8 @@ static sqlite3_module completionModule = {
   0,                         /* xSavepoint */
   0,                         /* xRelease */
   0,                         /* xRollbackTo */
-  0                          /* xShadowName */
+  0,                         /* xShadowName */
+  0                          /* xIntegrity */
 };
 
 #endif /* SQLITE_OMIT_VIRTUALTABLE */

@@ -453,7 +453,7 @@ int check_update_constraints(struct ireq *iq, void *trans,
             snprintf(ondisk_tag, MAXTAGLEN, ".ONDISK_IX_%d", ixnum);
             if (iq->idxDelete)
                 rc = create_key_from_ireq(iq, ixnum, 1, NULL, NULL, NULL, NULL,
-                                          rec_dta, 0 /* not needed */, lkey);
+                                          rec_dta, 0 /* not needed */, lkey, NULL, 0); // TODO: Fix blobs
             else
                 rc = create_key_from_ondisk(iq->usedb, ixnum, rec_dta, lkey);
             if (rc == -1) {
@@ -474,7 +474,7 @@ int check_update_constraints(struct ireq *iq, void *trans,
                 if (iq->idxInsert)
                     rc = create_key_from_ireq(iq, ixnum, 0, NULL, NULL, NULL, NULL,
                                               newrec_dta, 0 /* not needed */,
-                                              nkey);
+                                              nkey, NULL, 0); // TODO: Fix blobs
                 else
                     rc = create_key_from_ondisk(iq->usedb, ixnum, newrec_dta, nkey);
                 if (rc == -1) {
@@ -1368,7 +1368,7 @@ int delayed_key_adds(struct ireq *iq, void *trans, int *blkpos, int *ixout,
             if (iq->idxInsert)
                 rc = create_key_from_ireq(iq, doidx, 0, &od_dta_tail,
                                           &od_tail_len, mangled_key, partial_datacopy_tail, od_dta,
-                                          ondisk_size, key);
+                                          ondisk_size, key, NULL, 0); // TODO: Fix blobs
             else
                 rc = create_key_from_schema(iq->usedb, NULL, doidx, &od_dta_tail, &od_tail_len, mangled_key, partial_datacopy_tail,
                                             od_dta, ondisk_size, key, NULL, 0, iq->tzname);
@@ -1674,7 +1674,7 @@ int verify_add_constraints(struct ireq *iq, void *trans, int *errout)
                 snprintf(ondisk_tag, MAXTAGLEN, ".ONDISK_IX_%d", lixnum);
                 if (iq->idxInsert) {
                     rc = create_key_from_ireq(iq, lixnum, 0, NULL, NULL, NULL, NULL,
-                                              od_dta, 0 /* not needed */, lkey);
+                                              od_dta, 0 /* not needed */, lkey, NULL, 0); // TODO: Fix blobs
                 } else
                     rc = create_key_from_ondisk(iq->usedb, lixnum, od_dta, lkey);
 

@@ -196,7 +196,7 @@ int check_index(struct ireq *iq, void *trans, int ixnum, blob_buffer_t *blobs, s
 
     if (iq->idxInsert)
         rc = create_key_from_ireq(iq, ixnum, 0, &od_dta_tail, &od_tail_len,
-                                  mangled_key, partial_datacopy_tail, od_dta, od_len, key);
+                                  mangled_key, partial_datacopy_tail, od_dta, od_len, key, blobs, maxblobs);
     else {
         rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_dta_tail, &od_tail_len, mangled_key, partial_datacopy_tail,
                                     od_dta, od_len, key, blobs, maxblobs, iq->tzname);
@@ -409,7 +409,7 @@ int add_record_indices(struct ireq *iq, void *trans, blob_buffer_t *blobs,
 
         if (iq->idxInsert)
             rc = create_key_from_ireq(iq, ixnum, 0, &od_dta_tail, &od_tail_len,
-                                      mangled_key, partial_datacopy_tail, od_dta, od_len, key);
+                                      mangled_key, partial_datacopy_tail, od_dta, od_len, key, blobs, maxblobs);
         else {
             rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_dta_tail, &od_tail_len, mangled_key, partial_datacopy_tail,
                                         od_dta, od_len, key, blobs, maxblobs, iq->tzname);
@@ -648,7 +648,7 @@ int upd_record_indices(struct ireq *iq, void *trans, int *opfailcode,
                 (del_keys & (1ULL << ixnum)))
                 rc = create_key_from_ireq(iq, ixnum, 1, &od_olddta_tail,
                                           &od_oldtail_len, mangled_oldkey, partial_datacopy_oldtail,
-                                          old_dta, od_len, oldkey);
+                                          old_dta, od_len, oldkey, del_idx_blobs, MAXBLOBS);
         } else
             rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_olddta_tail, &od_oldtail_len, mangled_oldkey, partial_datacopy_oldtail,
                                         old_dta, od_len, oldkey, del_idx_blobs, MAXBLOBS, NULL);
@@ -669,7 +669,7 @@ int upd_record_indices(struct ireq *iq, void *trans, int *opfailcode,
                 (ins_keys & (1ULL << ixnum)))
                 rc = create_key_from_ireq(iq, ixnum, 0, &od_dta_tail,
                                           &od_tail_len, mangled_newkey, partial_datacopy_newtail, od_dta,
-                                          od_len, newkey);
+                                          od_len, newkey, add_idx_blobs, MAXBLOBS);
         } else /* form the new key from "od_dta" into "newkey" */
             rc = create_key_from_schema(iq->usedb, NULL, ixnum, &od_dta_tail, &od_tail_len, mangled_newkey, partial_datacopy_newtail,
                                         od_dta, od_len, newkey, add_idx_blobs, MAXBLOBS, NULL);
@@ -1058,7 +1058,7 @@ int upd_new_record_add2indices(struct ireq *iq, void *trans,
         if (iq->idxInsert)
             rc =
                 create_key_from_ireq(iq, ixnum, 0, &od_dta_tail, &od_tail_len,
-                                     mangled_key, partial_datacopy_tail, (char *)new_dta, nd_len, key);
+                                     mangled_key, partial_datacopy_tail, (char *)new_dta, nd_len, key, blobs, MAXBLOBS);
         else {
             rc = create_key_from_schema(
                 iq->usedb, use_new_tag ? NULL : find_tag_schema(iq->usedb, ".ONDISK"), ixnum, &od_dta_tail,

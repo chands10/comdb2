@@ -3321,7 +3321,7 @@ int describe_update_columns(const struct ireq *iq, const struct schema *chk, int
 int indexes_expressions_data(const struct dbtable *tbl, struct schema *sc,
                              const char *inbuf, char *outbuf,
                              blob_buffer_t *blobs, size_t maxblobs,
-                             struct field *f,
+                             const struct field *f,
                              struct convert_failure *fail_reason,
                              const char *tzname);
 static int stag_to_stag_field(const struct dbtable *tbl, const char *inbuf,
@@ -5303,6 +5303,7 @@ struct schema *clone_schema_index(struct schema *from, const char *tag,
             goto err;
         memcpy(sc->datacopy, from->datacopy, datacopy_nmembers * sizeof(int));
     }
+    sc->has_nextseq = from->has_nextseq;
     return sc;
 
 err:
@@ -6691,10 +6692,13 @@ int create_key_from_schema_simple(const struct dbtable *db, struct schema *schem
 
 int create_key_from_ireq(struct ireq *iq, int ixnum, int isDelete, char **tail,
                          int *taillen, char *mangled_key, char *partial_datacopy_tail,
-                         const char *inbuf, int inbuflen, char *outbuf)
+                         const char *inbuf, int inbuflen, char *outbuf, blob_buffer_t *inblobs, int maxblobs)
 {
     int rc = 0;
     dbtable *db = iq->usedb;
+
+    if (inblobs == NULL)
+        maxblobs = 0;
 
     if (isDelete)
         memcpy(outbuf, iq->idxDelete[ixnum], db->ix_keylen[ixnum]);
@@ -6709,9 +6713,15 @@ int create_key_from_ireq(struct ireq *iq, int ixnum, int isDelete, char **tail,
     char *check_for_resolve_master;
     for (int nfield = 0; nfield < idx_schema->nmembers; nfield++) {
         const struct field *idx_field = &idx_schema->member[nfield];
-        // TODO: expression idx
-        if (idx_field->isExpr)
+        if (schema->has_nextseq && idx_field->isExpr) { // rerun all expressions if table schema contains nextsequence (only get nextsequence value on master)
+            rc = indexes_expressions_data(iq->usedb, schema, inbuf, outbuf, inblobs, maxblobs, idx_field, NULL, iq->tzname);
+            if (rc) {
+                rc = -1;
+                return rc;
+            }
             continue;
+        }
+
         if (idx_field->in_default_type != SERVER_SEQUENCE)
             continue;
 

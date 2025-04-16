@@ -74,6 +74,7 @@ struct schema {
     char *sqlitetag;
     int *datacopy;
     char *where;
+    int has_nextseq; /* if the schema contains autoinc columns. Only valid for table schema */
 #if defined STACK_TAG_SCHEMA
     int frames;
     void *buf[MAX_TAG_STACK_FRAMES];
@@ -444,7 +445,7 @@ int create_key_from_schema(const struct dbtable *db, struct schema *schema, int 
 
 int create_key_from_ireq(struct ireq *iq, int ixnum, int isDelete, char **tail,
                          int *taillen, char *mangled_key, char *partial_datacopy_tail,
-                         const char *inbuf, int inbuflen, char *outbuf);
+                         const char *inbuf, int inbuflen, char *outbuf, blob_buffer_t *inblobs, int maxblobs);
 
 char* typestr(int type, int len);
 

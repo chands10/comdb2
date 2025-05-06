@@ -1468,7 +1468,7 @@ struct query_plan_item {
 };
 int free_query_plan_hash(hash_t *query_plan_hash);
 int clear_query_plans();
-void add_query_plan(const struct client_query_stats *query_stats, int64_t cost, int64_t nrows,
+void add_query_plan(sqlite3_stmt *stmt, int64_t cost, int64_t nrows,
                     struct fingerprint_track *t);
 
 /* Connection tracking */

@@ -2796,6 +2796,9 @@ static int try_ssl(cdb2_hndl_tp *hndl, SBUF2 *sb)
     int rc, dossl = 0;
     cdb2_ssl_sess *p;
 
+    if (sslio_has_ssl(sb))
+        return 0;
+
     if (SSL_IS_REQUIRED(hndl->c_sslmode)) {
         switch (hndl->s_sslmode) {
         case PEER_SSL_UNSUPPORTED:
@@ -2860,7 +2863,7 @@ static int try_ssl(cdb2_hndl_tp *hndl, SBUF2 *sb)
     if (rc != 'Y') {
         if (SSL_IS_OPTIONAL(hndl->c_sslmode)) {
             hndl->c_sslmode = SSL_ALLOW;
-            /* if server sends back 'N', reuse this plaintext connection;
+            /* if server responds 'N', reuse this plaintext connection;
                force reconnecting for an unexpected byte */
             return (rc == 'N') ? 0 : -1;
         }
@@ -2876,7 +2879,13 @@ static int try_ssl(cdb2_hndl_tp *hndl, SBUF2 *sb)
                      &hndl->key, &hndl->ca, &hndl->crl, hndl->num_hosts, NULL,
                      hndl->min_tls_ver, hndl->errstr, sizeof(hndl->errstr));
     if (rc != 0) {
-        hndl->sslerr = 1;
+        if (SSL_IS_REQUIRED(hndl->c_sslmode) || SSL_IS_REQUIRED(hndl->s_sslmode)) {
+            hndl->sslerr = 1;
+        } else {
+            hndl->c_sslmode = SSL_ALLOW;
+        }
+        sbuf2close(sb);
+        hndl->sb = NULL;
         return -1;
     }
 
@@ -2885,7 +2894,11 @@ static int try_ssl(cdb2_hndl_tp *hndl, SBUF2 *sb)
 
     SSL_CTX_free(ctx);
     if (rc != 1) {
-        hndl->sslerr = sbuf2lasterror(sb, hndl->errstr, sizeof(hndl->errstr));
+        hndl->sslerr = sslio_lasterror(sb, hndl->errstr, sizeof(hndl->errstr));
+        /* Don't leave an incomplete SSL connection here. Shut it down and reset sbuf.
+           Caller will reconnect upon a null `hndl->sb'. */
+        sbuf2close(sb);
+        hndl->sb = NULL;
         /* If SSL_connect() fails, invalidate the session. */
         if (p != NULL)
             p->sessobj = NULL;
@@ -3186,6 +3199,7 @@ static int cdb2portmux_get(cdb2_hndl_tp *hndl, const char *type,
     sbuf2close(ss);
     debugprint("get '%s' returns res='%s'\n", name, res);
     if (res[0] == '\0') {
+        sbuf2close(ss);
         snprintf(hndl->errstr, sizeof(hndl->errstr),
                  "%s:%d Invalid response from portmux.\n", __func__, __LINE__);
         port = -1;
@@ -3197,6 +3211,7 @@ static int cdb2portmux_get(cdb2_hndl_tp *hndl, const char *type,
                  "%s:%d Invalid response from portmux.\n", __func__, __LINE__);
         port = -1;
     }
+    sbuf2close(ss);
 after_callback:
     while ((e = cdb2_next_callback(hndl, CDB2_AFTER_PMUX, e)) != NULL) {
         callbackrc = cdb2_invoke_callback(
@@ -3386,8 +3401,8 @@ retry:
            An invalid client (e.g., a revoked cert) may see a successful
            handshake but encounter an error when reading data from the server.
            Catch the error here. */
-        if ((hndl->sslerr = sbuf2lasterror(sb, NULL, 0)))
-            sbuf2lasterror(sb, hndl->errstr, sizeof(hndl->errstr));
+        if ((hndl->sslerr = sslio_lasterror(sb, NULL, 0)))
+            sslio_lasterror(sb, hndl->errstr, sizeof(hndl->errstr));
         goto after_callback;
     }
 
@@ -3729,7 +3744,7 @@ retry_read:
             cdb2__sqlresponse__unpack(NULL, len, hndl->first_buf);
         hndl->error_in_trans = cdb2_convert_error_code(hndl->firstresponse->error_code);
         if (hndl->firstresponse->error_string)
-            strcpy(hndl->errstr, hndl->firstresponse->error_string);
+            sprintf(hndl->errstr, hndl->firstresponse->error_string);
         goto retry_read;
     }
 

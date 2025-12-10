@@ -55,6 +55,9 @@ if [ $? -ne 0 ]; then
     fi
 fi
 
+${TESTSBUILDDIR}/cdb2api_sockpooltimeout ${DBNAME}
+[[ $? -ne 0 ]] && echo "cdb2api_sockpooltimeout - fail" && exit 1
+echo 'cdb2api_sockpooltimeout - pass'
 
 cfg=$DBDIR/comdb2db.cfg
 echo 'comdb2_feature:discard_unread_socket_data=on' >> ${cfg}

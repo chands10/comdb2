@@ -87,6 +87,12 @@ if [ $? -ne 0 ]; then
 fi
 
 cfg=$DBDIR/comdb2db.cfg
+echo 'comdb2_config:max_local_connection_cache_entries=0' >> ${cfg}
+${TESTSBUILDDIR}/cdb2api_dbinfo ${DBNAME}
+[[ $? -ne 0 ]] && echo "cdb2api_dbinfo - fail" && exit 1
+sed -i '/comdb2_config:max_local_connection_cache_entries=0/d' "${cfg}"
+echo 'cdb2api_dbinfo - pass'
+
 echo 'comdb2_config:api_call_timeout=5000' >> ${cfg}
 echo 'comdb2_config:enforce_api_call_timeout=on' >> ${cfg}
 ${TESTSBUILDDIR}/cdb2api_enforce_timeout ${DBNAME}

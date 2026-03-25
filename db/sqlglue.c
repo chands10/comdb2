@@ -5123,6 +5123,13 @@ int sqlite3BtreeCommit(Btree *pBt)
     /* This is the last chunk; count it in. */
     if (clnt->dbtran.maxchunksize > 0 && clnt->dbtran.mode == TRANLEVEL_SOSQL)
         ++clnt->dbtran.nchunks;
+    logmsg(LOGMSG_USER, "sqlite3BtreeCommit: sql='%s' maxchunksize=%d nchunks=%d mode=%d from %s:%d\n",
+           clnt->sql ? clnt->sql : "NULL", clnt->dbtran.maxchunksize, clnt->dbtran.nchunks, clnt->dbtran.mode, __FILE__,
+           __LINE__);
+    if (clnt->dbtran.maxchunksize > 0 || clnt->dbtran.nchunks > 0) {
+        logmsg(LOGMSG_USER, "sqlite3BtreeCommit: clearing chunk state\n");
+        cheap_stack_trace();
+    }
     clnt->dbtran.crtchunksize = clnt->dbtran.maxchunksize = 0;
 
 #ifdef DEBUG_TRAN
@@ -5151,7 +5158,10 @@ int sqlite3BtreeCommit(Btree *pBt)
          * -we wipe em out
          */
         if (clnt->dbtran.shadow_tran) {
-            rc = recom_commit(clnt, thd, clnt->tzname, 0);
+            enum trans_clntcomm sideeffects = (clnt->dbtran.nchunks > 0) ? TRANS_CLNTCOMM_CHUNK : TRANS_CLNTCOMM_NORMAL;
+            logmsg(LOGMSG_USER, "RECOM commit: nchunks=%d sideeffects=%d maxchunksize=%d from %s:%d\n",
+                   clnt->dbtran.nchunks, sideeffects, clnt->dbtran.maxchunksize, __FILE__, __LINE__);
+            rc = recom_commit(clnt, thd, clnt->tzname, 0, sideeffects);
 
             if (!rc) {
                 irc = trans_commit_shadow(clnt->dbtran.shadow_tran, &bdberr);
@@ -5263,7 +5273,8 @@ int sqlite3BtreeCommit(Btree *pBt)
                 rc = SQLITE_ABORT;
             }
         } else {
-            rc = osql_sock_commit(clnt, OSQL_SOCK_REQ, TRANS_CLNTCOMM_NORMAL);
+            enum trans_clntcomm sideeffects = (clnt->dbtran.nchunks > 0) ? TRANS_CLNTCOMM_CHUNK : TRANS_CLNTCOMM_NORMAL;
+            rc = osql_sock_commit(clnt, OSQL_SOCK_REQ, sideeffects);
         }
         break;
 

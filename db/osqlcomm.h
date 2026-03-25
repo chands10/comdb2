@@ -410,8 +410,8 @@ uint8_t *client_query_stats_put(const struct client_query_stats *p_stats,
  * Timeoutms limits total amount of waiting for a commit
  *
  */
-int osql_recv_commit_rc(COMDB2BUF *sb, int timeoutms, int timeoutdeltams, int *nops,
-                        struct errstat *err);
+int osql_recv_commit_rc(COMDB2BUF *sb, int timeoutms, int timeoutdeltams, int *nops, struct errstat *err,
+                        struct sqlclntstate *clnt);
 
 /**
  * Read the bplog request, coming from a socket

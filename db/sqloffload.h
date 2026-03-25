@@ -67,8 +67,8 @@ int tran2req(int dbtran);
 int tran2netreq(int dbtran);
 int tran2netrpl(int dbtran);
 
-int recom_commit(struct sqlclntstate *clnt, struct sql_thread *thd,
-                 char *tzname, int is_distributed_tran);
+int recom_commit(struct sqlclntstate *clnt, struct sql_thread *thd, char *tzname, int is_distributed_tran,
+                 enum trans_clntcomm sideeffects);
 int recom_abort(struct sqlclntstate *clnt);
 
 int serial_commit(struct sqlclntstate *clnt, struct sql_thread *thd,

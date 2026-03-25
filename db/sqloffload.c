@@ -216,9 +216,10 @@ extern int gbl_osql_send_startgen;
 /* Set to 1, check read-only transactions on the master. */
 int gbl_serialize_reads_like_writes = 0;
 
-static int rese_commit(struct sqlclntstate *clnt, struct sql_thread *thd,
-                       char *tzname, int osqlreq_type, int is_distrib_tran)
+static int rese_commit(struct sqlclntstate *clnt, struct sql_thread *thd, char *tzname, int osqlreq_type,
+                       int is_distrib_tran, enum trans_clntcomm sideeffects)
 {
+    logmsg(LOGMSG_USER, "rese_commit: sideeffects=%d osqlreq_type=%d\n", sideeffects, osqlreq_type);
 
     int sentops = 0;
     int bdberr = 0;
@@ -348,7 +349,7 @@ static int rese_commit(struct sqlclntstate *clnt, struct sql_thread *thd,
 
         /* close the block processor session and retrieve the result */
         sql_debug_logf(clnt, __func__, __LINE__, "committing\n");
-        rc = osql_sock_commit(clnt, osqlreq_type, TRANS_CLNTCOMM_NORMAL);
+        rc = osql_sock_commit(clnt, osqlreq_type, sideeffects);
         if (rc && rc != SQLITE_ABORT && rc != SQLITE_DEADLOCK && rc != SQLITE_BUSY && rc != SQLITE_READONLY &&
             rc != SQLITE_CLIENT_CHANGENODE) {
             // XXX HERE IS THE BUG .. SQLITE_ERROR IS 1 - THE SAME AS DUP
@@ -395,14 +396,17 @@ static int sorese_abort(struct sqlclntstate *clnt, int osqlreq_type)
     return 0;
 }
 
-int recom_commit(struct sqlclntstate *clnt, struct sql_thread *thd,
-                 char *tzname, int is_distributed_tran)
+int recom_commit(struct sqlclntstate *clnt, struct sql_thread *thd, char *tzname, int is_distributed_tran,
+                 enum trans_clntcomm sideeffects)
 {
     int rc = 0;
 
+    logmsg(LOGMSG_USER, "recom_commit: sideeffects=%d nchunks=%d is_distrib=%d\n", sideeffects, clnt->dbtran.nchunks,
+           is_distributed_tran);
+
     /* temp hook for sql transactions */
     if (clnt->dbtran.dtran) {
-        rc = fdb_trans_commit(clnt, TRANS_CLNTCOMM_NORMAL);
+        rc = fdb_trans_commit(clnt, sideeffects);
         if (rc) {
             logmsg(LOGMSG_ERROR, "%s distributed failure rc=%d\n", __func__, rc);
             return rc;
@@ -410,7 +414,7 @@ int recom_commit(struct sqlclntstate *clnt, struct sql_thread *thd,
     }
 
     is_distributed_tran = (is_distributed_tran && clnt->sent_fdb_commit);
-    return rese_commit(clnt, thd, tzname, OSQL_RECOM_REQ, is_distributed_tran);
+    return rese_commit(clnt, thd, tzname, OSQL_RECOM_REQ, is_distributed_tran, sideeffects);
 }
 
 int recom_abort(struct sqlclntstate *clnt)
@@ -433,7 +437,7 @@ int snapisol_commit(struct sqlclntstate *clnt, struct sql_thread *thd,
                     char *tzname)
 {
 
-    return rese_commit(clnt, thd, tzname, OSQL_SNAPISOL_REQ, 0);
+    return rese_commit(clnt, thd, tzname, OSQL_SNAPISOL_REQ, 0, TRANS_CLNTCOMM_NORMAL);
 }
 
 int snapisol_abort(struct sqlclntstate *clnt)
@@ -446,7 +450,7 @@ int serial_commit(struct sqlclntstate *clnt, struct sql_thread *thd,
                   char *tzname)
 {
 
-    return rese_commit(clnt, thd, tzname, OSQL_SERIAL_REQ, 0);
+    return rese_commit(clnt, thd, tzname, OSQL_SERIAL_REQ, 0, TRANS_CLNTCOMM_NORMAL);
 }
 
 int serial_abort(struct sqlclntstate *clnt)

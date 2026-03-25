@@ -39,7 +39,8 @@ void init_bplog_socket_master(struct osql_target *, struct comdb2buf *);
  * Read buffer over the socket with timeout and default timeout
  *
  */
-int osql_read_buffer(char *p_buf, size_t p_buf_len, struct comdb2buf *, int *timeoutms, int deltams);
+int osql_read_buffer(char *p_buf, size_t p_buf_len, struct comdb2buf *, int *timeoutms, int deltams,
+                     struct sqlclntstate *clnt);
 int osql_read_buffer_default(char *buf, int buflen, struct comdb2buf *);
 
 #endif

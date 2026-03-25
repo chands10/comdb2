@@ -1219,7 +1219,12 @@ static tsql_meta_command_t is_transaction_meta_sql(const char *zSql)
 
 static tsql_meta_command_t is_transaction_meta(struct sqlclntstate *clnt)
 {
-    return is_transaction_meta_sql(clnt->sql);
+    tsql_meta_command_t meta = is_transaction_meta_sql(clnt->sql);
+    if (meta != 0) {
+        logmsg(LOGMSG_USER, "is_transaction_meta: detected meta=%d sql='%s' nchunks=%d\n", meta, clnt->sql,
+               clnt->dbtran.nchunks);
+    }
+    return meta;
 }
 
 /* Save copy of sql statement and performance data.  If any other code
@@ -1643,6 +1648,7 @@ static void sql_update_usertran_state(struct sqlclntstate *clnt)
                                         SQLENG_FNSH_STATE);
             }
             clnt->dbtran.crtchunksize = clnt->dbtran.maxchunksize = 0;
+            clnt->dbtran.nchunks = 0;
             clnt->dbtran.trans_has_sp = 0;
             clnt->in_client_trans = 0;
         }
@@ -1661,6 +1667,7 @@ static void sql_update_usertran_state(struct sqlclntstate *clnt)
             sql_set_sqlengine_state(clnt, __FILE__, __LINE__,
                                     SQLENG_FNSH_RBK_STATE);
             clnt->dbtran.crtchunksize = clnt->dbtran.maxchunksize = 0;
+            clnt->dbtran.nchunks = 0;
             clnt->dbtran.trans_has_sp = 0;
             clnt->in_client_trans = 0;
         }
@@ -2069,7 +2076,7 @@ static int do_commitrollback(struct sqlthdstate *thd, struct sqlclntstate *clnt,
         case TRANLEVEL_MODSNAP: {
             /* here we handle the communication with bp */
             if (clnt->ctrl_sqlengine == SQLENG_FNSH_STATE) {
-                rc = recom_commit(clnt, thd->sqlthd, clnt->tzname, 0);
+                rc = recom_commit(clnt, thd->sqlthd, clnt->tzname, 0, sideeffects);
                 /* if a transaction exists
                    (it doesn't for empty begin/commit */
                 if (clnt->dbtran.shadow_tran) {
@@ -2341,6 +2348,9 @@ static int do_commitrollback(struct sqlthdstate *thd, struct sqlclntstate *clnt,
     return rc;
 }
 
+/* Forward declaration */
+static int send_heartbeat(struct sqlclntstate *clnt);
+
 /* In a transaction, whenever a non-COMMIT/ROLLBACK command fails, we set
  * clnt->had_errors and report error to the client. Once set, we must not
  * send anything to the client (per the wire protocol?) unless intransresults
@@ -2349,7 +2359,7 @@ static int do_commitrollback(struct sqlthdstate *thd, struct sqlclntstate *clnt,
 static int do_send_commitrollback_response(struct sqlclntstate *clnt,
                                            int sideeffects)
 {
-    if (sideeffects == TRANS_CLNTCOMM_NORMAL &&
+    if ((sideeffects == TRANS_CLNTCOMM_NORMAL || sideeffects == TRANS_CLNTCOMM_CHUNK) &&
         (send_intrans_response(clnt) || !clnt->had_errors))
         return 1;
     return 0;
@@ -2397,6 +2407,8 @@ int handle_sql_commitrollback(struct sqlthdstate *thd,
     }
 
     rc = do_commitrollback(thd, clnt, sideeffects);
+    logmsg(LOGMSG_USER, "handle_sql_commitrollback: do_commitrollback returned rc=%d sideeffects=%d\n", rc,
+           sideeffects);
 
     clnt->ins_keys = 0ULL;
     clnt->del_keys = 0ULL;
@@ -2439,6 +2451,11 @@ int handle_sql_commitrollback(struct sqlthdstate *thd,
 
         write_response(clnt, RESPONSE_EFFECTS, 0, 0);
 
+        /* Send heartbeat for chunked transactions to keep connection alive */
+        if (sideeffects == TRANS_CLNTCOMM_CHUNK) {
+            send_heartbeat(clnt);
+        }
+
         /* do not turn heartbeats if this is a chunked transaction */
         if (sideeffects != TRANS_CLNTCOMM_CHUNK)
             clnt->ready_for_heartbeats = 0;
@@ -2457,6 +2474,7 @@ int handle_sql_commitrollback(struct sqlthdstate *thd,
         outrc = SQLITE_OK; /* the happy case */
 
         Pthread_mutex_unlock(&clnt->wait_mutex);
+        logmsg(LOGMSG_USER, "handle_sql_commitrollback: completed successfully sideeffects=%d\n", sideeffects);
 
         if (clnt->osql.replay != OSQL_RETRY_NONE) {
             /* successful retry */
@@ -2467,6 +2485,7 @@ int handle_sql_commitrollback(struct sqlthdstate *thd,
                         (clnt->sql) ? clnt->sql : "(???.)", sideeffects);
         }
     } else {
+        logmsg(LOGMSG_USER, "handle_sql_commitrollback: commit failed rc=%d sideeffects=%d\n", rc, sideeffects);
         /* If this is a verify or serializable error and the client hasn't
          * read any data then it is safe to retry */
         int can_retry = replicant_can_retry_rc(clnt, rc);
@@ -3690,6 +3709,9 @@ static void handle_expert_query(struct sqlthdstate *thd,
 static int handle_non_sqlite_requests(struct sqlthdstate *thd,
                                       struct sqlclntstate *clnt, int *outrc)
 {
+    /* Save chunk state before sql_update_usertran_state clears it */
+    int had_chunks = (clnt->dbtran.nchunks > 0 || clnt->dbtran.maxchunksize > 0);
+
     sql_update_usertran_state(clnt);
 
     switch (clnt->ctrl_sqlengine) {
@@ -3706,7 +3728,8 @@ static int handle_non_sqlite_requests(struct sqlthdstate *thd,
     case SQLENG_FNSH_STATE:
     case SQLENG_FNSH_RBK_STATE:
         reqlog_set_event(thd->logger, EV_SQL);
-        *outrc = handle_sql_commitrollback(thd, clnt, TRANS_CLNTCOMM_NORMAL);
+        enum trans_clntcomm sideeffects = had_chunks ? TRANS_CLNTCOMM_CHUNK : TRANS_CLNTCOMM_NORMAL;
+        *outrc = handle_sql_commitrollback(thd, clnt, sideeffects);
         return 1;
 
     case SQLENG_NORMAL_PROCESS:
@@ -5370,6 +5393,13 @@ int cdb2_in_client_trans() {
 
 void reset_clnt(struct sqlclntstate *clnt, int initial)
 {
+    int saved_nchunks = clnt->dbtran.nchunks;
+    int saved_maxchunksize = clnt->dbtran.maxchunksize;
+    logmsg(LOGMSG_USER, "reset_clnt called: initial=%d nchunks=%d maxchunksize=%d\n", initial, saved_nchunks,
+           saved_maxchunksize);
+    if (saved_nchunks > 0 || saved_maxchunksize > 0) {
+        cheap_stack_trace();
+    }
     if (initial) {
         bzero(clnt, sizeof(*clnt));
         Pthread_mutex_init(&clnt->wait_mutex, NULL);
@@ -5422,6 +5452,8 @@ void reset_clnt(struct sqlclntstate *clnt, int initial)
 
     /* start off in the default transaction mode till we're told otherwise */
     clnt->dbtran.mode = gbl_sql_tranlevel_default;
+    logmsg(LOGMSG_USER, "reset_clnt: clearing nchunks (was %d) initial=%d from %s:%d\n", clnt->dbtran.nchunks, initial,
+           __FILE__, __LINE__);
     clnt->dbtran.nchunks = 0;
     clnt->heartbeat = 0;
     clnt->limits.maxcost = gbl_querylimits_maxcost;
@@ -5450,6 +5482,11 @@ void reset_clnt(struct sqlclntstate *clnt, int initial)
     /* let's reset osql structure as well */
     osql_clean_sqlclntstate(clnt);
     /* clear dbtran after aborting unfinished shadow transactions. */
+    if (clnt->dbtran.nchunks > 0 || clnt->dbtran.maxchunksize > 0) {
+        logmsg(LOGMSG_USER, "reset_clnt: bzero dbtran clearing chunks - nchunks=%d maxchunksize=%d from %s:%d\n",
+               clnt->dbtran.nchunks, clnt->dbtran.maxchunksize, __FILE__, __LINE__);
+        cheap_stack_trace();
+    }
     bzero(&clnt->dbtran, sizeof(dbtran_type));
 
     clnt->dbtran.crtchunksize = clnt->dbtran.maxchunksize = 0;

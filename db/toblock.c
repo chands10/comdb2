@@ -1230,6 +1230,7 @@ static int do_replay_case(struct ireq *iq, void *fstseqnum, int seqlen,
                    "%u replay rc changed from %d to NOT_DURABLE for blkseq '%s'\n",
                    line, outrc, cnonce);
         }
+        logmsg(LOGMSG_ERROR, "%u replay rc changed from %d to NOT_DURABLE\n", line, outrc);
         outrc = ERR_NOT_DURABLE;
     }
 

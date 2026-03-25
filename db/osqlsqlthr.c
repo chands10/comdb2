@@ -77,8 +77,8 @@ static int osql_send_qblobs_logic(struct BtCursor *pCur, osqlstate_t *osql,
 static int osql_send_recordgenid_logic(struct BtCursor *pCur,
                                        struct sql_thread *thd,
                                        unsigned long long genid, int nettype);
-static int osql_send_commit_logic(struct sqlclntstate *clnt, int is_retry,
-                                  int nettype);
+static int osql_send_commit_logic(struct sqlclntstate *clnt, int is_retry, int nettype,
+                                  enum trans_clntcomm sideeffects);
 static int osql_send_abort_logic(struct sqlclntstate *clnt, int nettype);
 static int check_osql_capacity(struct sql_thread *thd);
 
@@ -1067,7 +1067,7 @@ retry:
         }
     }
 
-    rc = osql_send_commit_logic(clnt, retries, req2netrpl(type));
+    rc = osql_send_commit_logic(clnt, retries, req2netrpl(type), sideeffects);
     if (rc) {
         logmsg(LOGMSG_ERROR, "%s:%d: failed to send commit to master rc was %d\n", __FILE__,
                 __LINE__, rc);
@@ -1498,8 +1498,7 @@ static int osql_send_qblobs_logic(struct BtCursor *pCur, osqlstate_t *osql,
     return rc;
 }
 
-static int osql_send_commit_logic(struct sqlclntstate *clnt, int is_retry,
-                                  int nettype)
+static int osql_send_commit_logic(struct sqlclntstate *clnt, int is_retry, int nettype, enum trans_clntcomm sideeffects)
 {
     osqlstate_t *osql = &clnt->osql;
     int rc = 0;
@@ -1518,7 +1517,7 @@ static int osql_send_commit_logic(struct sqlclntstate *clnt, int is_retry,
     osql->tran_ops = 0; /* reset transaction size counter*/
 
     if (!clnt->dbtran.trans_has_sp) {
-        if (clnt->dbtran.maxchunksize > 0) {
+        if (sideeffects == TRANS_CLNTCOMM_CHUNK) {
             snap_info_p = &zero_snap_info;
         } else {
             // Pass to master the state of verify retry.

@@ -8681,8 +8681,8 @@ int offload_net_send(const char *host, int usertype, void *data, int datalen,
  * Timeoutms limits total amount of waiting for a commit
  *
  */
-int osql_recv_commit_rc(COMDB2BUF *sb, int timeoutms, int timeoutdeltams, int *nops,
-                        struct errstat *err)
+int osql_recv_commit_rc(COMDB2BUF *sb, int timeoutms, int timeoutdeltams, int *nops, struct errstat *err,
+                        struct sqlclntstate *clnt)
 {
     char hdr_buf[OSQLCOMM_UUID_RPL_TYPE_LEN];
     osql_uuid_rpl_t hdr;
@@ -8693,16 +8693,14 @@ int osql_recv_commit_rc(COMDB2BUF *sb, int timeoutms, int timeoutdeltams, int *n
     int rc = 0;
     int length;
 
-    rc = osql_read_buffer((char *)&length, sizeof(length), sb, &left_timeoutms,
-                          timeoutdeltams);
+    rc = osql_read_buffer((char *)&length, sizeof(length), sb, &left_timeoutms, timeoutdeltams, clnt);
     if (rc || !left_timeoutms) {
         part = "packet length";
         goto error;
     }
 
     /* get the header */
-    rc = osql_read_buffer(hdr_buf, sizeof(hdr_buf), sb, &left_timeoutms,
-                          timeoutdeltams);
+    rc = osql_read_buffer(hdr_buf, sizeof(hdr_buf), sb, &left_timeoutms, timeoutdeltams, clnt);
     if (rc || !left_timeoutms) {
         part = "header";
         goto error;
@@ -8721,8 +8719,7 @@ int osql_recv_commit_rc(COMDB2BUF *sb, int timeoutms, int timeoutdeltams, int *n
         char done_buf[OSQLCOMM_DONE_TYPE_LEN];
         osql_done_t done;
 
-        rc = osql_read_buffer(done_buf, sizeof(done_buf), sb, &left_timeoutms,
-                              timeoutdeltams);
+        rc = osql_read_buffer(done_buf, sizeof(done_buf), sb, &left_timeoutms, timeoutdeltams, clnt);
         if (rc || !left_timeoutms) {
             part = "done";
             goto error;
@@ -8744,8 +8741,7 @@ int osql_recv_commit_rc(COMDB2BUF *sb, int timeoutms, int timeoutdeltams, int *n
     case OSQL_XERR: {
         char xerr_buf[ERRSTAT_LEN];
 
-        rc = osql_read_buffer(xerr_buf, sizeof(xerr_buf), sb, &left_timeoutms,
-                              timeoutdeltams);
+        rc = osql_read_buffer(xerr_buf, sizeof(xerr_buf), sb, &left_timeoutms, timeoutdeltams, clnt);
         if (rc || !left_timeoutms) {
             part = "xerr";
             goto error;

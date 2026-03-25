@@ -404,7 +404,7 @@ int fdb_svc_trans_commit(char *tid, enum transaction_level lvl,
     case TRANLEVEL_MODSNAP:
     case TRANLEVEL_RECOM: {
         /* here we handle the communication with bp */
-        rc = recom_commit(clnt, NULL, clnt->tzname, 1);
+        rc = recom_commit(clnt, NULL, clnt->tzname, 1, TRANS_CLNTCOMM_NORMAL);
         /* if a transaction exists
            (it doesn't for empty begin/commit */
         if (clnt->dbtran.shadow_tran) {

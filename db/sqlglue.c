@@ -8918,6 +8918,35 @@ done:
     return rc;
 }
 
+/* Send heartbeat during SQL execution to prevent client timeout */
+static void send_exec_heartbeat_if_needed(struct sqlclntstate *clnt)
+{
+    if (!clnt)
+        return;
+
+    long long now = comdb2_time_epochms();
+
+    /* Send heartbeat every 250ms during execution */
+    if (now - clnt->last_exec_heartbeat_ms >= 250) {
+        int save_heartbeat = clnt->heartbeat;
+        int save_ready = clnt->ready_for_heartbeats;
+
+        clnt->heartbeat = 1;
+        clnt->ready_for_heartbeats = 1;
+
+        logmsg(LOGMSG_USER, "DEBUG: Sending exec heartbeat (elapsed=%lld ms)\n", now - clnt->last_exec_heartbeat_ms);
+
+        write_response(clnt, RESPONSE_HEARTBEAT, 0, 0);
+        /* Flush to ensure heartbeat is sent immediately */
+        write_response(clnt, RESPONSE_FLUSH, 0, 0);
+
+        clnt->heartbeat = save_heartbeat;
+        clnt->ready_for_heartbeats = save_ready;
+
+        clnt->last_exec_heartbeat_ms = now;
+    }
+}
+
 /*
  ** Insert a new record into the BTree.  The key is given by (pKey,nKey)
  ** and the data is given by (pData,nData).  The cursor is used only to
@@ -8954,6 +8983,9 @@ int sqlite3BtreeInsert(
     nKey = pPayload->nKey;
     pData = pPayload->pData;
     nData = pPayload->nData;
+
+    /* Send periodic heartbeats during execution to prevent client timeout */
+    send_exec_heartbeat_if_needed(clnt);
 
     /* If pData is NULL, ondisk_buf and ondisk_blobs contain comdb2 row data
        and are ready to be inserted as is. */

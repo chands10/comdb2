@@ -186,8 +186,6 @@ static int _socket_send(osql_target_t *target, int usertype, void *data,
 static int osql_wait_socket(struct sqlclntstate *clnt, int timeout,
                             struct errstat *err)
 {
-    logmsg(LOGMSG_USER, "DEBUG: osql_wait_socket called, type=%d, timeout=%d\n", clnt->osql.target.type, timeout);
-
     if (clnt->osql.target.type != OSQL_OVER_SOCKET)
         return -1;
 
@@ -196,9 +194,7 @@ static int osql_wait_socket(struct sqlclntstate *clnt, int timeout,
     int rc;
     int nops_commit;
 
-    logmsg(LOGMSG_USER, "DEBUG: calling osql_recv_commit_rc\n");
     rc = osql_recv_commit_rc(clnt->osql.target.sb, timeout * 1000, gbl_sockbplog_poll, &nops_commit, err, clnt);
-    logmsg(LOGMSG_USER, "DEBUG: osql_recv_commit_rc returned %d\n", rc);
     if (rc) {
         logmsg(LOGMSG_ERROR,
                "%s failed to read commit rc from master rc %d timeout %d\n",
@@ -220,13 +216,19 @@ static int send_heartbeat(struct sqlclntstate *clnt);
 /* Send heartbeat to client to keep connection alive */
 static int send_heartbeat(struct sqlclntstate *clnt)
 {
-    /* During OSQL wait, always send heartbeats to prevent client timeout.
-     * We ignore both the heartbeat and ready_for_heartbeats flags because
-     * this is a critical path where the client is waiting for master commit
-     * and can timeout if we don't keep the connection alive. */
-    logmsg(LOGMSG_USER, "DEBUG: send_heartbeat called\n");
-    int rc = write_response(clnt, RESPONSE_HEARTBEAT, 0, 0);
-    logmsg(LOGMSG_USER, "DEBUG: write_response returned %d\n", rc);
+    /* During OSQL wait, ensure heartbeats are enabled and sent to prevent
+     * client timeout while waiting for master commit. */
+    int save_heartbeat = clnt->heartbeat;
+    int save_ready = clnt->ready_for_heartbeats;
+
+    clnt->heartbeat = 1;
+    clnt->ready_for_heartbeats = 1;
+
+    write_response(clnt, RESPONSE_HEARTBEAT, 0, 0);
+
+    /* Restore original flags */
+    clnt->heartbeat = save_heartbeat;
+    clnt->ready_for_heartbeats = save_ready;
 
     return 0;
 }
@@ -240,13 +242,10 @@ int osql_read_buffer(char *p_buf, size_t p_buf_len, COMDB2BUF *sb, int *timeoutm
 
     assert(timeoutms && *timeoutms > 0);
 
-    logmsg(LOGMSG_USER, "DEBUG: osql_read_buffer called, clnt=%p, timeout=%d\n", (void *)clnt, *timeoutms);
-
     while (*timeoutms > 0) {
         start = comdb2_time_epochms();
         rc = cdb2buf_fread(p_buf, p_buf_len, 1, sb);
         end = comdb2_time_epochms();
-        logmsg(LOGMSG_USER, "DEBUG: cdb2buf_fread rc=%d, start=%d, end=%d\n", rc, start, end);
         /* sbuf2 does not tell us if it was timeout or socket closed; we do not
         want to loop here if socket closed; measure the time to discriminate,
         since we use at least a 1ms timeout */

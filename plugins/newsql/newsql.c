@@ -1760,6 +1760,8 @@ int process_set_commands(struct sqlclntstate *clnt, CDB2SQLQUERY *sql_query)
                         }
                     } else {
                         clnt->dbtran.maxchunksize = tmp;
+                        logmsg(LOGMSG_USER, "DEBUG SET CHUNK: Set maxchunksize=%d mode=%d from %s:%d\n",
+                               clnt->dbtran.maxchunksize, clnt->dbtran.mode, __FILE__, __LINE__);
                         /* in chunked mode, we disable verify retries */
                         clnt->verifyretry_off = 1;
                     }
@@ -2473,6 +2475,8 @@ newsql_loop_result newsql_loop(struct sqlclntstate *clnt, CDB2SQLQUERY *sql_quer
         clnt->is_readonly = 0;
 
     if (gbl_rowlocks && clnt->dbtran.mode != TRANLEVEL_SERIAL) {
+        logmsg(LOGMSG_USER, "DEBUG ROWLOCKS: Changing mode from %d to TRANLEVEL_SNAPISOL, maxchunksize=%d from %s:%d\n",
+               clnt->dbtran.mode, clnt->dbtran.maxchunksize, __FILE__, __LINE__);
         clnt->dbtran.mode = TRANLEVEL_SNAPISOL;
     }
 

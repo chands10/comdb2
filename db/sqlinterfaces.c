@@ -1798,6 +1798,9 @@ int handle_sql_begin(struct sqlthdstate *thd, struct sqlclntstate *clnt,
 {
     int rc;
 
+    logmsg(LOGMSG_USER, "DEBUG BEGIN: maxchunksize=%d nchunks=%d mode=%d sideeffects=%d from %s:%d\n",
+           clnt->dbtran.maxchunksize, clnt->dbtran.nchunks, clnt->dbtran.mode, sideeffects, __FILE__, __LINE__);
+
     rc = SQLITE_OK;
 
     Pthread_mutex_lock(&clnt->wait_mutex);
@@ -2406,9 +2409,12 @@ int handle_sql_commitrollback(struct sqlthdstate *thd,
         goto done;
     }
 
+    /* Send heartbeat before commit for chunked transactions to keep connection alive during commit */
+    if (sideeffects == TRANS_CLNTCOMM_CHUNK) {
+        send_heartbeat(clnt);
+    }
+
     rc = do_commitrollback(thd, clnt, sideeffects);
-    logmsg(LOGMSG_USER, "handle_sql_commitrollback: do_commitrollback returned rc=%d sideeffects=%d\n", rc,
-           sideeffects);
 
     clnt->ins_keys = 0ULL;
     clnt->del_keys = 0ULL;
@@ -5456,6 +5462,7 @@ void reset_clnt(struct sqlclntstate *clnt, int initial)
            __FILE__, __LINE__);
     clnt->dbtran.nchunks = 0;
     clnt->heartbeat = 0;
+    clnt->last_exec_heartbeat_ms = comdb2_time_epochms();
     clnt->limits.maxcost = gbl_querylimits_maxcost;
     clnt->limits.tablescans_ok = gbl_querylimits_tablescans_ok;
     clnt->limits.temptables_ok = gbl_querylimits_temptables_ok;

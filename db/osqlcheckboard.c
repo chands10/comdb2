@@ -50,6 +50,29 @@ typedef struct osql_checkboard {
 
 static osql_checkboard_t *checkboard = NULL;
 
+/* Forward declaration */
+static int send_heartbeat(struct sqlclntstate *clnt);
+
+/* Send heartbeat to client to keep connection alive */
+static int send_heartbeat(struct sqlclntstate *clnt)
+{
+    /* During commit wait, ensure heartbeats are enabled and sent to prevent
+     * client timeout while waiting for commit. */
+    int save_heartbeat = clnt->heartbeat;
+    int save_ready = clnt->ready_for_heartbeats;
+
+    clnt->heartbeat = 1;
+    clnt->ready_for_heartbeats = 1;
+
+    write_response(clnt, RESPONSE_HEARTBEAT, 0, 0);
+
+    /* Restore original flags */
+    clnt->heartbeat = save_heartbeat;
+    clnt->ready_for_heartbeats = save_ready;
+
+    return 0;
+}
+
 /* will get rdlock on checkboard->mtx if parameter lock is set
  * if caller already has mtx, call this func with lock = false
  */
@@ -413,22 +436,31 @@ void osql_checkboard_check_down_nodes(char *host)
  * and returns with that same mutex locked if rc is 0
  * but unlocked if rc is nonzero
  */
-static int wait_till_max_wait_or_timeout(osql_sqlthr_t *entry, int max_wait,
-                                         struct errstat *xerr, int *cnt)
+static int wait_till_max_wait_or_timeout(osql_sqlthr_t *entry, int max_wait, struct errstat *xerr, int *cnt,
+                                         struct sqlclntstate *clnt)
 {
     int rc = 0;
     uuidstr_t us;
+    /* Send initial heartbeat before entering wait loop */
+    if (clnt) {
+        send_heartbeat(clnt);
+    }
+
     /* several conditions cause us to break out */
-    while (entry->done != 1 && !entry->master_changed &&
-           ((max_wait > 0 && (*cnt) < max_wait) || max_wait < 0)) {
+    /* cnt is in units of 250ms, so multiply max_wait (in seconds) by 4 */
+    while (entry->done != 1 && !entry->master_changed && ((max_wait > 0 && (*cnt) < max_wait * 4) || max_wait < 0)) {
 
         if (entry->progressing)
             comdb2_sql_tick_no_recover_deadlock();
 
-        /* prepare to wait for a second */
+        /* prepare to wait for 250ms (to send heartbeats frequently and avoid client timeout) */
         struct timespec tm_s;
         clock_gettime(CLOCK_REALTIME, &tm_s);
-        tm_s.tv_sec++;
+        tm_s.tv_nsec += 250000000; // 250ms
+        if (tm_s.tv_nsec >= 1000000000) {
+            tm_s.tv_sec++;
+            tm_s.tv_nsec -= 1000000000;
+        }
 
         Pthread_mutex_unlock(&entry->mtx);
 
@@ -462,9 +494,14 @@ static int wait_till_max_wait_or_timeout(osql_sqlthr_t *entry, int max_wait,
 
         (*cnt)++;
 
+        /* Send heartbeat to keep client connection alive while waiting for commit */
+        if (clnt) {
+            send_heartbeat(clnt);
+        }
+
         /* we got back the mutex, are we there yet ? */
-        if (entry->done == 1 || entry->master_changed ||
-            (max_wait > 0 && (*cnt) >= max_wait))
+        /* cnt is in units of 250ms, so multiply max_wait (in seconds) by 4 */
+        if (entry->done == 1 || entry->master_changed || (max_wait > 0 && (*cnt) >= max_wait * 4))
             break;
 
         int poke_timeout =
@@ -538,8 +575,8 @@ static int wait_till_max_wait_or_timeout(osql_sqlthr_t *entry, int max_wait,
  * Upon return, sqlclntstate's errstat is set
  *
  */
-int osql_chkboard_wait_commitrc(unsigned long long rqid, uuid_t uuid,
-                                int max_wait, struct errstat *xerr)
+int osql_chkboard_wait_commitrc(unsigned long long rqid, uuid_t uuid, int max_wait, struct errstat *xerr,
+                                struct sqlclntstate *clnt)
 {
     int done = 0;
     int cnt = 0;
@@ -575,7 +612,7 @@ int osql_chkboard_wait_commitrc(unsigned long long rqid, uuid_t uuid,
         last_status = entry->status;
 
         // wait_till_max_wait_or_timeout() expects to be called with mtx locked
-        int rc = wait_till_max_wait_or_timeout(entry, max_wait, xerr, &cnt);
+        int rc = wait_till_max_wait_or_timeout(entry, max_wait, xerr, &cnt, clnt);
         if (rc) // dont unlock entry->mtx, on nonzero rc it was already unlocked
             return rc;
 
@@ -583,7 +620,8 @@ int osql_chkboard_wait_commitrc(unsigned long long rqid, uuid_t uuid,
 
         Pthread_mutex_unlock(&entry->mtx);
 
-        if (max_wait > 0 && cnt >= max_wait) {
+        /* cnt is in units of 250ms, so multiply max_wait (in seconds) by 4 */
+        if (max_wait > 0 && cnt >= max_wait * 4) {
             if (last_status < entry->status) {
                 // Let's also bump up the timeout.
                 int poke_timeout = bdb_attr_get(

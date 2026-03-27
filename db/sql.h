@@ -782,6 +782,7 @@ struct sqlclntstate {
     uint8_t ready_for_heartbeats;
     uint8_t no_more_heartbeats;
     uint8_t done;
+    long long last_exec_heartbeat_ms; /* Last time we sent heartbeat during SQL execution */
     plugin_func *done_cb; /* newsql_done_evbuffer */
     unsigned long long sqltick, sqltick_last_seen;
 

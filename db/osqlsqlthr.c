@@ -400,9 +400,9 @@ static int osql_wait(struct sqlclntstate *clnt)
         if (!clnt->wait(clnt, timeout, err))
             return 0;
 
-    // return osql_chkboard_wait_commitrc(osql->rqid, osql->uuid, timeout, err);
+    // return osql_chkboard_wait_commitrc(osql->rqid, osql->uuid, timeout, err, clnt);
     int startms = comdb2_time_epochms();
-    int rc = osql_chkboard_wait_commitrc(osql->rqid, osql->uuid, timeout, err);
+    int rc = osql_chkboard_wait_commitrc(osql->rqid, osql->uuid, timeout, err, clnt);
     int endms = comdb2_time_epochms();
     if (gbl_debug_disttxn_trace) {
         uuidstr_t us;
@@ -1514,6 +1514,8 @@ static int osql_send_commit_logic(struct sqlclntstate *clnt, int is_retry, int n
         osql->tablename = NULL;
         osql->tablenamelen = 0;
     }
+    logmsg(LOGMSG_USER, "osql_send_commit_logic: RESETTING tran_ops=%d replicant_numops=%d sideeffects=%d nchunks=%d\n",
+           osql->tran_ops, osql->replicant_numops, sideeffects, clnt->dbtran.nchunks);
     osql->tran_ops = 0; /* reset transaction size counter*/
 
     if (!clnt->dbtran.trans_has_sp) {
@@ -1578,6 +1580,8 @@ static int osql_send_commit_logic(struct sqlclntstate *clnt, int is_retry, int n
 
     } while (restarted);
 
+    logmsg(LOGMSG_USER, "osql_send_commit_logic: RESETTING replicant_numops (was %d) after sending commit\n",
+           osql->replicant_numops);
     osql->replicant_numops = 0; // reset for next time
 
     return rc;
@@ -1618,6 +1622,9 @@ static int check_osql_capacity_int(struct sqlclntstate *clnt)
 
     osql->sentops++;
     osql->tran_ops++;
+
+    logmsg(LOGMSG_USER, "check_osql_capacity: tran_ops=%d osql_max_trans=%d nchunks=%d\n", osql->tran_ops,
+           clnt->osql_max_trans, clnt->dbtran.nchunks);
 
     if (clnt->osql_max_trans && osql->tran_ops > clnt->osql_max_trans) {
         /* This trace is used by ALMN 1779 to alert database owners.. please do

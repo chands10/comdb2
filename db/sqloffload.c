@@ -219,8 +219,6 @@ int gbl_serialize_reads_like_writes = 0;
 static int rese_commit(struct sqlclntstate *clnt, struct sql_thread *thd, char *tzname, int osqlreq_type,
                        int is_distrib_tran, enum trans_clntcomm sideeffects)
 {
-    logmsg(LOGMSG_USER, "rese_commit: sideeffects=%d osqlreq_type=%d\n", sideeffects, osqlreq_type);
-
     int sentops = 0;
     int bdberr = 0;
     int rc = 0;
@@ -400,9 +398,6 @@ int recom_commit(struct sqlclntstate *clnt, struct sql_thread *thd, char *tzname
                  enum trans_clntcomm sideeffects)
 {
     int rc = 0;
-
-    logmsg(LOGMSG_USER, "recom_commit: sideeffects=%d nchunks=%d is_distrib=%d\n", sideeffects, clnt->dbtran.nchunks,
-           is_distributed_tran);
 
     /* temp hook for sql transactions */
     if (clnt->dbtran.dtran) {

@@ -5061,9 +5061,7 @@ int cdb2_next_record(cdb2_hndl_tp *hndl)
     if (overwrite_rc)
         goto after_callback;
 
-    if (hndl->in_trans && !hndl->read_intrans_results && !hndl->is_read) {
-        rc = CDB2_OK_DONE;
-    } else if (hndl->lastresponse && hndl->first_record_read == 0) {
+    if (hndl->lastresponse && hndl->first_record_read == 0) {
         hndl->first_record_read = 1;
         if (hndl->lastresponse->response_type == RESPONSE_TYPE__COLUMN_VALUES ||
             hndl->lastresponse->response_type == RESPONSE_TYPE__SQL_ROW) {

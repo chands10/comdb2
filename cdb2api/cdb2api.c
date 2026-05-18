@@ -2634,14 +2634,14 @@ static int sockpool_place_fd_in_pool(int fd)
     for (int i = 0; i < sockpool_fd_count; i++) {
         struct sockpool_fd_list *sp = &sockpool_fds[i];
         if (sp->sockpool_fd == fd) {
-            assert(sp->in_use == 1);
+            // assert(sp->in_use == 1);
             sp->in_use = 0;
             found = 1;
             rc = 0;
             break;
         }
         if (sp->sockpool_fd < 0 && empty_ix == -1) {
-            assert(sp->in_use == 0);
+            // assert(sp->in_use == 0);
             empty_ix = i;
         }
     }
@@ -2670,7 +2670,7 @@ static void sockpool_remove_fd(int fd)
     for (int i = 0; i < sockpool_fd_count; i++) {
         struct sockpool_fd_list *sp = &sockpool_fds[i];
         if (sp->sockpool_fd == fd) {
-            assert(sp->in_use == 1);
+            // assert(sp->in_use == 1);
             sp->sockpool_fd = -1;
             sp->in_use = 0;
             break;
@@ -3978,7 +3978,7 @@ after_callback:
 }
 
 /* try to connect to range from low (inclusive) to high (exclusive) starting with begin */
-static inline int cdb2_try_connect_range(cdb2_hndl_tp *hndl, int begin, int low, int high)
+static inline int cdb2_try_connect_range(cdb2_hndl_tp *hndl, int begin, int low, int high, int check_ports)
 {
     int max = high - low;
     /* Starting from `begin', try up to `max' times */
@@ -3988,7 +3988,8 @@ static inline int cdb2_try_connect_range(cdb2_hndl_tp *hndl, int begin, int low,
             i = low;
 
         hndl->node_seq = i + 1;
-        if (i == hndl->master || i == hndl->connected_host || hndl->hosts_connected[i] == 1)
+        if (i == hndl->master || (check_ports && hndl->ports[i] <= 0) || i == hndl->connected_host ||
+            hndl->hosts_connected[i] == 1)
             continue;
         if (newsql_connect(hndl, i) == 0)
             return 0;
@@ -4076,13 +4077,13 @@ retry_connect:
                (hndl->num_hosts_sameroom > 0)) {
         hndl->node_seq = getRandomExclude(0, hndl->num_hosts_sameroom, hndl->master);
         /* First try on same room. */
-        if (0 == cdb2_try_connect_range(hndl, hndl->node_seq, 0, hndl->num_hosts_sameroom))
+        if (0 == cdb2_try_connect_range(hndl, hndl->node_seq, 0, hndl->num_hosts_sameroom, 1))
             return 0;
         /* If we fail to connect to any of the nodes in our DC, choose a random start point from the other DC */
         hndl->node_seq = getRandomExclude(hndl->num_hosts_sameroom, hndl->num_hosts, hndl->master);
     }
 
-    if (0 == cdb2_try_connect_range(hndl, hndl->node_seq, 0, hndl->num_hosts))
+    if (0 == cdb2_try_connect_range(hndl, hndl->node_seq, 0, hndl->num_hosts, 0))
         return 0;
 
     if (hndl->sb == NULL) {

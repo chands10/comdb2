@@ -5284,7 +5284,9 @@ int cdb2_close(cdb2_hndl_tp *hndl)
 
 void next_cnonce(cdb2_hndl_tp *hndl)
 {
+    pthread_mutex_lock(&cdb2_cfg_lock);
     do_init_once();
+    pthread_mutex_unlock(&cdb2_cfg_lock);
     struct timeval tv;
     gettimeofday(&tv, NULL);
     sprintf(hndl->cnonce, "%d-%d-%lld-%d", _MACHINE_ID, _PID, (long long)tv.tv_usec, cdb2_random_int());

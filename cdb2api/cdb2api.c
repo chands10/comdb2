@@ -816,18 +816,24 @@ void reset_once(void)
 }
 #endif
 
-static void do_init_once(void)
+static void do_init_once(int acquire_lock)
 {
     if (!init_once_has_run) {
-        srandom(time(0));
-        local_connection_cache_owner_pid = _PID = getpid();
-        _MACHINE_ID = gethostid();
-        _ARGV0 = cdb2_getargv0();
-        pthread_atfork(atfork_prepare, atfork_me, atfork_child);
-        TAILQ_INIT(&local_connection_cache);
-        TAILQ_INIT(&free_local_connection_cache);
-        process_env_vars();
-        init_once_has_run = 1;
+        if (acquire_lock)
+            pthread_mutex_lock(&cdb2_cfg_lock);
+        if (!init_once_has_run) {
+            srandom(time(0));
+            local_connection_cache_owner_pid = _PID = getpid();
+            _MACHINE_ID = gethostid();
+            _ARGV0 = cdb2_getargv0();
+            pthread_atfork(atfork_prepare, atfork_me, atfork_child);
+            TAILQ_INIT(&local_connection_cache);
+            TAILQ_INIT(&free_local_connection_cache);
+            process_env_vars();
+            init_once_has_run = 1;
+        }
+        if (acquire_lock)
+            pthread_mutex_unlock(&cdb2_cfg_lock);
     }
 }
 
@@ -1450,7 +1456,7 @@ void cdb2_hndl_set_max_retries(cdb2_hndl_tp *hndl, int max_retries)
 void cdb2_set_comdb2db_config(char *cfg_file)
 {
     pthread_mutex_lock(&cdb2_cfg_lock);
-    do_init_once();
+    do_init_once(0);
     LOG_CALL("%s(\"%s\")\n", __func__, cfg_file);
     memset(CDB2DBCONFIG_NOBBENV, 0, sizeof(CDB2DBCONFIG_NOBBENV) /* 512 */);
     if (cfg_file != NULL) {
@@ -1465,7 +1471,7 @@ void cdb2_set_comdb2db_info(char *cfg_info)
     LOG_CALL("%s(\"%s\")\n", __func__, cfg_info);
     int len;
     pthread_mutex_lock(&cdb2_cfg_lock);
-    do_init_once();
+    do_init_once(0);
     if (CDB2DBCONFIG_BUF != NULL) {
         free(CDB2DBCONFIG_BUF);
         CDB2DBCONFIG_BUF = NULL;
@@ -2525,9 +2531,7 @@ static int open_sockpool_ll(void)
     const char *ptr;
     size_t bytesleft;
 
-    pthread_mutex_lock(&cdb2_cfg_lock);
-    do_init_once();
-    pthread_mutex_unlock(&cdb2_cfg_lock);
+    do_init_once(1);
 
     fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd == -1) {
@@ -5284,9 +5288,7 @@ int cdb2_close(cdb2_hndl_tp *hndl)
 
 void next_cnonce(cdb2_hndl_tp *hndl)
 {
-    pthread_mutex_lock(&cdb2_cfg_lock);
-    do_init_once();
-    pthread_mutex_unlock(&cdb2_cfg_lock);
+    do_init_once(1);
     struct timeval tv;
     gettimeofday(&tv, NULL);
     sprintf(hndl->cnonce, "%d-%d-%lld-%d", _MACHINE_ID, _PID, (long long)tv.tv_usec, cdb2_random_int());
@@ -8862,9 +8864,7 @@ int cdb2_open(cdb2_hndl_tp **handle, const char *dbname, const char *type,
     void *callbackrc;
     cdb2_event *e = NULL;
 
-    pthread_mutex_lock(&cdb2_cfg_lock);
-    do_init_once();
-    pthread_mutex_unlock(&cdb2_cfg_lock);
+    do_init_once(1);
 
     *handle = hndl = calloc(1, sizeof(cdb2_hndl_tp));
     TAILQ_INIT(&hndl->queries);

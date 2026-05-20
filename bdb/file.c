@@ -6554,6 +6554,7 @@ static int bdb_del_file(bdb_state_type *bdb_state, DB_TXN *tid, char *filename,
                         int *bdberr)
 {
     DB_ENV *dbenv;
+    DB *dbp = NULL;
     char transname[PATH_MAX];
     char *pname = bdb_trans(filename, transname);
     int rc = 0;
@@ -6564,7 +6565,31 @@ static int bdb_del_file(bdb_state_type *bdb_state, DB_TXN *tid, char *filename,
         dbenv = bdb_state->dbenv;
 
     if ((rc = access(pname, F_OK)) == 0) {
-        int rc = dbenv->dbremove(dbenv, tid, filename, NULL, 0);
+        extern int gbl_clear_ufid_on_db_close;
+
+        /* Clear any ufid-hash entries before deleting the file to prevent
+         * "deleted" file descriptors from being held open, especially on
+         * replicants that opened handles during recovery. */
+        if (gbl_clear_ufid_on_db_close) {
+            if ((rc = db_create(&dbp, dbenv, 0)) == 0 &&
+                (rc = dbp->open(dbp, NULL, pname, NULL, DB_BTREE, 0, 0666)) == 0) {
+                /* Clear ufid hash entry for this file */
+                int clear_rc = dbp->clear_ufid_hash(dbp, NULL, 0);
+                if (clear_rc != 0) {
+                    logmsg(LOGMSG_WARN, "bdb_del_file: clear_ufid_hash for %s failed: %d %s\n", filename, clear_rc,
+                           db_strerror(clear_rc));
+                    /* Continue anyway - not fatal */
+                }
+                dbp->close(dbp, DB_NOSYNC);
+                dbp = NULL;
+            } else if (rc != ENOENT) {
+                /* File exists but we couldn't open it - log but continue */
+                logmsg(LOGMSG_WARN, "bdb_del_file: failed to open %s for ufid clearing: %d %s\n", filename, rc,
+                       db_strerror(rc));
+            }
+        }
+
+        rc = dbenv->dbremove(dbenv, tid, filename, NULL, 0);
         if (rc) {
            logmsg(LOGMSG_ERROR, "bdb_del_file: dbremove %s failed: %d %s\n", filename, rc,
                    db_strerror(rc));

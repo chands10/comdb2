@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+bash -n "$0" | exit 1
+
+# This test validates that the delfiles command clears ufid-hash entries
+# BEFORE deleting files.
+#
+# The bug: after a node recovers from a crash, it opens DB handles via
+# ufid-hash with DB_AM_RECOVER flag. If that node later becomes master
+# and runs delfiles (without a schema change), those handles are not
+# cleared, so the deleted files remain held open.
+#
+# The scenario:
+#   1. Create old file versions via TRUNCATE
+#   2. Bounce the master - during recovery it opens DB_AM_RECOVER handles
+#      for the old file versions
+#   3. The recovered node stays as master (or re-wins election)
+#   4. Run standalone delfiles - without the fix, the DB_AM_RECOVER handles
+#      for the old files are not cleared, so they show as deleted in lsof
+#
+# Usage (manual): ./runit <dbname>
+# Usage (test framework): called with $1=dbname, TESTSROOTDIR/CDB2_OPTIONS set
+
+if [ -n "$TESTSROOTDIR" ]; then
+    source ${TESTSROOTDIR}/tools/cluster_utils.sh
+    [ -z "${CLUSTER}" ] && { echo "Test requires a cluster"; exit 0; }
+fi
+
+dbnm=$1
+
+SQL="cdb2sql $dbnm local"
+SQL_TABS="cdb2sql --tabs $dbnm local"
+
+master=$($SQL_TABS "select host from comdb2_cluster where is_master='Y'")
+replicant=$($SQL_TABS "select host from comdb2_cluster where is_master='N' limit 1")
+
+echo "Database: $dbnm  Master: $master  Replicant: $replicant"
+
+echo "Creating table and inserting data..."
+$SQL "DROP TABLE IF EXISTS t1"
+$SQL "CREATE TABLE t1 (i integer, b blob)"
+sleep 2
+
+cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
+sleep 2
+
+$SQL "INSERT INTO t1 VALUES(1, x'DEADBEEF')"
+$SQL "INSERT INTO t1 VALUES(2, x'CAFEBABE')"
+sleep 2
+
+cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
+sleep 2
+
+# Create old file version via TRUNCATE
+echo "Truncating table to create old file version..."
+$SQL "TRUNCATE TABLE t1"
+sleep 2
+
+cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
+sleep 2
+
+$SQL "INSERT INTO t1 VALUES(3, x'BAADF00D')"
+sleep 2
+
+cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
+sleep 2
+
+# Bounce the MASTER. During recovery it will open DB_AM_RECOVER handles
+# for the old file version (pre-truncate). These handles remain in
+# ufid-hash after recovery completes.
+echo ""
+echo "Please kill and restart comdb2 on the MASTER: $master"
+echo "Then press Enter to continue..."
+read -r _
+
+echo "Waiting for $master to come back up..."
+for i in $(seq 1 60); do
+    cdb2sql $dbnm --host $master "SELECT 1" >/dev/null 2>&1 && break
+    sleep 2
+done
+cdb2sql $dbnm --host $master "SELECT 1" >/dev/null 2>&1 || { echo "$master did not come back up"; exit 1; }
+echo "$master is back up"
+sleep 5
+
+# Make sure we are talking to the actual master (may have changed after bounce)
+master=$($SQL_TABS "select host from comdb2_cluster where is_master='Y'")
+echo "Current master: $master"
+
+echo ""
+echo "Running standalone delfiles (no schema change)..."
+cdb2sql --tabs $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('delfiles t1')"
+sleep 2
+
+echo ""
+echo "Check for deleted files on the master node by running:"
+echo ""
+echo "  $master: lsof -p \$(pgrep -f $dbnm | head -1) | grep deleted"
+echo ""
+echo "If it shows old t1 data files as deleted, the bug is present."
+echo "Press Enter when done checking..."
+read -r _
+
+echo "Cleaning up..."
+$SQL "DROP TABLE IF EXISTS t1"
+exit 0

@@ -1,0 +1,5 @@
+setattr CHECKPOINTTIME 9999999
+setattr MEMPTRICKLEPERCENT 10
+clear_ufid_on_db_close 1
+dtastripe 1
+track_db_open 1

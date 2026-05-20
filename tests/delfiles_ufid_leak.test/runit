@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+bash -n "$0" | exit 1
+
+# This test validates that the delfiles command clears ufid-hash entries
+# BEFORE deleting files, preventing "deleted" file descriptors from being
+# held open on replicants.
+#
+# Unlike berkdb_file_leaks_rep.test which does TRUNCATE before delfiles,
+# this test runs delfiles WITHOUT any preceding schema change to reproduce
+# the issue where deleted files accumulate on replicants.
+
+source ${TESTSROOTDIR}/tools/cluster_utils.sh
+
+[ -z "${CLUSTER}" ] && { echo "Test requires a cluster"; exit 0; }
+
+dbnm=$1
+
+master=`cdb2sql --tabs ${CDB2_OPTIONS} $dbnm default "select host from comdb2_cluster where is_master='Y'"`
+replicant=`cdb2sql --tabs ${CDB2_OPTIONS} $dbnm default "select comdb2_host()"`
+
+echo "Creating table and inserting data..."
+cdb2sql ${CDB2_OPTIONS} $dbnm default "CREATE TABLE t1 (i integer, b blob)"
+sleep 2
+
+cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
+sleep 2
+
+# Insert data to create files
+cdb2sql ${CDB2_OPTIONS} $dbnm default "INSERT INTO t1 VALUES(1, x'DEADBEEF')"
+cdb2sql ${CDB2_OPTIONS} $dbnm default "INSERT INTO t1 VALUES(2, x'CAFEBABE')"
+sleep 2
+
+cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
+sleep 2
+
+# TRUNCATE to create an old file version
+echo "Truncating table to create old file version..."
+cdb2sql ${CDB2_OPTIONS} $dbnm default "TRUNCATE TABLE t1"
+sleep 2
+
+cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
+sleep 2
+
+# Insert new data in the new file version
+cdb2sql ${CDB2_OPTIONS} $dbnm default "INSERT INTO t1 VALUES(3, x'BAADF00D')"
+sleep 2
+
+cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
+sleep 2
+
+echo "Restarting replicant $replicant to force recovery..."
+# This causes the replicant to open DB handles via ufid-hash during recovery
+# These handles will be for BOTH the old and new file versions
+kill_restart_node $replicant 10 1
+cdb2sql $dbnm --host $replicant "SELECT 1"
+if [ $? -ne 0 ]; then
+    echo 'db not up?' >&2
+    exit 1
+fi
+
+sleep 2
+
+echo "Running delfiles WITHOUT any schema change..."
+# KEY: No TRUNCATE/ALTER/DROP before delfiles!
+# This is the scenario where delfiles is run standalone
+# Without the fix, ufid-hash holds open handles to old files
+cdb2sql -tabs $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('delfiles t1')"
+
+sleep 2
+
+# Check all nodes for "deleted" files
+echo "Checking for deleted files held open..."
+for host in $CLUSTER; do
+    dbpid=`ssh $host 'pgrep -a comdb2' | grep $dbnm | awk '{print $1}' | head -1`
+    echo "Checking host $host (pid $dbpid)..."
+
+    deleted_count=`ssh $host "lsof -p $dbpid 2>/dev/null | grep -c deleted"`
+    rc=$?
+    [ $rc -ne 0 ] && deleted_count=0
+
+    if [ "$deleted_count" != "0" ]; then
+        echo "ERROR: Host $host has $deleted_count deleted files held open!" >&2
+        echo "Deleted files:" >&2
+        ssh $host "lsof -p $dbpid 2>/dev/null | grep deleted" >&2
+        exit 1
+    fi
+    echo "  No deleted files on $host"
+done
+
+echo "Success! delfiles properly cleared ufid-hash entries."
+exit 0

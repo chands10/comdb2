@@ -5380,6 +5380,8 @@ static int retry_queries(cdb2_hndl_tp *hndl, int num_retry, int run_last)
                              &hndl->num_hosts_sameroom, hndl->debug_trace, &hndl->s_sslmode);
             cdb2__dbinforesponse__free_unpacked(dbinfo_response, NULL);
             hndl->node_seq = 0;
+            bzero(hndl->hosts_connected, sizeof(hndl->hosts_connected));
+            hndl->connected_host = -1;
         }
         debugprint("type=%d returning 1\n", type);
 
@@ -6378,6 +6380,7 @@ read_record:
 
                 newsql_disconnect(hndl, hndl->sb, __LINE__);
                 hndl->node_seq = 0;
+                bzero(hndl->hosts_connected, sizeof(hndl->hosts_connected));
                 hndl->connected_host = -1;
                 hndl->retry_all = 1;
             }

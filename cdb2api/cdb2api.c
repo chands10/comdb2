@@ -4736,10 +4736,10 @@ static int cdb2_send_query(cdb2_hndl_tp *hndl, cdb2_hndl_tp *event_hndl, COMDB2B
         features[n_features++] = CDB2_CLIENT_FEATURES__ALLOW_MASTER_EXEC;
     }
 
-    if (hndl && hndl->cnonce[0]) { /* Have a query id associated with each transaction/query */
+    if (hndl && hndl->cnonce_len > 0) { /* Have a query id associated with each transaction/query */
         sqlquery.has_cnonce = 1;
         sqlquery.cnonce.data = (uint8_t *)hndl->cnonce;
-        sqlquery.cnonce.len = strlen(hndl->cnonce);
+        sqlquery.cnonce.len = hndl->cnonce_len;
     }
 
     CDB2SQLQUERY__Snapshotinfo snapshotinfo;
@@ -5286,12 +5286,20 @@ int cdb2_close(cdb2_hndl_tp *hndl)
     return rc;
 }
 
-void next_cnonce(cdb2_hndl_tp *hndl)
+static void make_random_str(char *str, size_t str_sz, int *len)
 {
     do_init_once(1);
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    sprintf(hndl->cnonce, "%d-%d-%lld-%d", _MACHINE_ID, _PID, (long long)tv.tv_usec, cdb2_random_int());
+    int rc = snprintf(str, str_sz, "%d-%d-%lld-%d", _MACHINE_ID, _PID, (long long)tv.tv_usec, cdb2_random_int());
+    if (rc < 0 || (size_t)rc >= str_sz) {
+        // should not be possible to go here. 100 bytes is more than enough to fit the string for all numbers.
+        LOG_CALL("%s: snprintf failed or truncated (rc=%d str_sz=%zu)\n", __func__, rc, str_sz);
+        str[0] = '\0';
+        *len = 0;
+    } else {
+        *len = rc;
+    }
     return;
 }
 
@@ -6132,7 +6140,7 @@ static int cdb2_run_statement_typed_int(cdb2_hndl_tp *hndl, const char *sql, int
 
     if (!hndl->in_trans) { /* only one cnonce for a transaction. */
         clear_snapshot_info(hndl, __LINE__);
-        next_cnonce(hndl);
+        make_random_str(hndl->cnonce, sizeof(hndl->cnonce), &hndl->cnonce_len);
     }
     hndl->retry_all = 1;
     int run_last = 1;

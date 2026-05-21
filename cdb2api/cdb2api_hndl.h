@@ -49,20 +49,6 @@ struct cdb2_event {
     cdb2_event_arg argv[1];
 };
 
-/* A cnonce is composed of
-   - 32 bits of machine ID
-   - 32 bits of process PID
-   - 32 or 64 bits of handle address
-   - 52 bits for the epoch time in microseconds
-   - 12 bits for the sequence number
-
-   The allocation allows a handle to run at a maximum transaction rate of
-   4096 txn/us (~4 billion transactions per second) till September 17, 2112.
-
-   See next_cnonce() for details. */
-#define CNONCE_STR_FMT "%lx-%x-%llx-"
-#define CNONCE_STR_SZ 60 /* 16 + 1 + 8 + 1 + 16 + 1 + 16 + 1 (NUL) */
-
 struct cdb2_stmt_types;
 
 struct cdb2_query {
@@ -117,7 +103,8 @@ struct cdb2_hndl {
     int connected_host;
     int flags;
     char errstr[1024];
-    char cnonce[CNONCE_STR_SZ];
+    char cnonce[100];
+    int cnonce_len;
     char *sql;
     char partial_sql[64];
     int ntypes;

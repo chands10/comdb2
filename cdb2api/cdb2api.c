@@ -5375,11 +5375,12 @@ static int retry_queries(cdb2_hndl_tp *hndl, int num_retry, int run_last)
         CDB2DBINFORESPONSE *dbinfo_response = NULL;
         dbinfo_response =
             cdb2__dbinforesponse__unpack(NULL, len, hndl->first_buf);
-        parse_dbresponse(dbinfo_response, hndl->hosts, hndl->ports,
-                         &hndl->master, &hndl->num_hosts,
-                         &hndl->num_hosts_sameroom, hndl->debug_trace,
-                         &hndl->s_sslmode);
-        cdb2__dbinforesponse__free_unpacked(dbinfo_response, NULL);
+        if (dbinfo_response) {
+            parse_dbresponse(dbinfo_response, hndl->hosts, hndl->ports, &hndl->master, &hndl->num_hosts,
+                             &hndl->num_hosts_sameroom, hndl->debug_trace, &hndl->s_sslmode);
+            cdb2__dbinforesponse__free_unpacked(dbinfo_response, NULL);
+            hndl->node_seq = 0;
+        }
         debugprint("type=%d returning 1\n", type);
 
         /* Clear cached SSL sessions - Hosts may have changed. */
@@ -6369,18 +6370,17 @@ read_record:
                 GOTO_RETRY_QUERIES();
             }
             /* We got back info about nodes that might be coherent. */
-            CDB2DBINFORESPONSE *dbinfo_resp = NULL;
-            dbinfo_resp =
-                cdb2__dbinforesponse__unpack(NULL, len, hndl->first_buf);
-            parse_dbresponse(dbinfo_resp, hndl->hosts, hndl->ports,
-                             &hndl->master, &hndl->num_hosts,
-                             &hndl->num_hosts_sameroom, hndl->debug_trace,
-                             &hndl->s_sslmode);
-            cdb2__dbinforesponse__free_unpacked(dbinfo_resp, NULL);
+            CDB2DBINFORESPONSE *dbinfo_response = cdb2__dbinforesponse__unpack(NULL, len, hndl->first_buf);
+            if (dbinfo_response) {
+                parse_dbresponse(dbinfo_response, hndl->hosts, hndl->ports, &hndl->master, &hndl->num_hosts,
+                                 &hndl->num_hosts_sameroom, hndl->debug_trace, &hndl->s_sslmode);
+                cdb2__dbinforesponse__free_unpacked(dbinfo_response, NULL);
 
-            newsql_disconnect(hndl, hndl->sb, __LINE__);
-            hndl->connected_host = -1;
-            hndl->retry_all = 1;
+                newsql_disconnect(hndl, hndl->sb, __LINE__);
+                hndl->node_seq = 0;
+                hndl->connected_host = -1;
+                hndl->retry_all = 1;
+            }
 
             /* Clear cached SSL sessions - Hosts may have changed. */
             if (hndl->sess != NULL) {

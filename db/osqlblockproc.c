@@ -214,6 +214,7 @@ blocksql_tran_t *osql_bplog_create(int is_uuid, int is_reorder)
 
     tran->is_uuid = is_uuid;
     Pthread_mutex_init(&tran->store_mtx, NULL);
+    tran->tbl_idx = USHRT_MAX; /* Mark as uninitialized until USEDB */
 
     /* init temporary table and cursor */
     tran->db = bdb_temp_array_create(thedb->bdb_env, &bdberr);
@@ -426,11 +427,33 @@ void osql_bplog_close(blocksql_tran_t **ptran)
     free(tran);
 }
 
-static void setup_reorder_key(blocksql_tran_t *tran, int type,
-                              osql_sess_t *sess, unsigned long long rqid,
-                              char *rpl, oplog_key_t *key)
+static int setup_reorder_key(blocksql_tran_t *tran, int type, osql_sess_t *sess, unsigned long long rqid, char *rpl,
+                             oplog_key_t *key)
 {
     char *tablename = tran->tablename;
+
+    /* Validate that USEDB has been called before row operations */
+    switch (type) {
+    case OSQL_RECGENID:
+    case OSQL_UPDATE:
+    case OSQL_DELETE:
+    case OSQL_UPDREC:
+    case OSQL_DELREC:
+    case OSQL_INSERT:
+    case OSQL_INSREC:
+    case OSQL_QBLOB:
+    case OSQL_DELIDX:
+    case OSQL_INSIDX:
+    case OSQL_UPDCOLS:
+        if (tran->tbl_idx == USHRT_MAX) {
+            logmsg(LOGMSG_ERROR, "%s: row operation %d (%s) received before OSQL_USEDB\n", __func__, type,
+                   osql_reqtype_str(type));
+            return -1;
+        }
+        break;
+    default:
+        break;
+    }
 
     key->tbl_idx = USHRT_MAX;
     switch (type) {
@@ -516,6 +539,7 @@ static void setup_reorder_key(blocksql_tran_t *tran, int type,
         tran->last_is_ins = 0;
         break;
     }
+    return 0;
 }
 
 static void osql_cache_selectv(blocksql_tran_t *tran, char *rpl, int type);
@@ -585,8 +609,26 @@ static int _pre_process_saveop(osql_sess_t *sess, blocksql_tran_t *tran,
         break;
     }
 
-    if (tran->is_selectv_wl_upd)
+    if (tran->is_selectv_wl_upd) {
+        /* osql_cache_selectv accesses tran->tablename; guard against row ops
+         * arriving before OSQL_USEDB has set it. */
+        switch (type) {
+        case OSQL_UPDATE:
+        case OSQL_DELETE:
+        case OSQL_UPDREC:
+        case OSQL_DELREC:
+        case OSQL_RECGENID:
+            if (tran->tablename == NULL) {
+                logmsg(LOGMSG_ERROR, "%s: row operation %d (%s) received before OSQL_USEDB\n", __func__, type,
+                       osql_reqtype_str(type));
+                return -1;
+            }
+            break;
+        default:
+            break;
+        }
         osql_cache_selectv(tran, rpl, type);
+    }
     return rc;
 }
 
@@ -643,7 +685,13 @@ int osql_bplog_saveop(osql_sess_t *sess, blocksql_tran_t *tran, char *rpl,
 
     struct temp_table *tmptbl = tran->db;
     if (tran->is_reorder_on) {
-        setup_reorder_key(tran, type, sess, sess->rqid, rpl, &key);
+        rc = setup_reorder_key(tran, type, sess, sess->rqid, rpl, &key);
+        if (rc != 0) {
+            Pthread_mutex_unlock(&tran->store_mtx);
+            logmsg(LOGMSG_ERROR, "%s: setup_reorder_key failed for type=%d (%s) seq=%u\n", __func__, type,
+                   osql_reqtype_str(type), tran->seq);
+            return rc;
+        }
         if (tran->last_is_ins && tran->db_ins) { // insert into ins temp table
             tmptbl = tran->db_ins;
         }
@@ -882,9 +930,9 @@ static inline int ins_is_less(oplog_key_t *opkey_ins, oplog_key_t *opkey,
            (opkey_ins->tbl_idx == opkey->tbl_idx && add_stripe < opkey->stripe);
 }
 
-/* Get the next record from either the ins tmp table or from the 
+/* Get the next record from either the ins tmp table or from the
  * generic one, depending on from where we read previous record,
- * and on which entry is smaller (ins tmp tbl, or normal tmp tbl). 
+ * and on which entry is smaller (ins tmp tbl, or normal tmp tbl).
  * Drain adds in add_stripe only after doing the upd/dels for that stripe
  */
 static inline int
@@ -960,7 +1008,7 @@ static int process_this_session(
 
     iq->queryid = osql_sess_queryid(sess);
     if (gbl_max_time_per_txn_ms)
-        iq->txn_ttl_ms = gettimeofday_ms() + gbl_max_time_per_txn_ms; 
+        iq->txn_ttl_ms = gettimeofday_ms() + gbl_max_time_per_txn_ms;
 
     if (sess->rqid != OSQL_RQID_USE_UUID)
         reqlog_set_rqid(iq->reqlogger, &sess->rqid, sizeof(unsigned long long));
@@ -1006,8 +1054,8 @@ static int process_this_session(
 
     /* only reorder indices if more than one row add/upd/dels
      * NB: the idea is that single row transactions can not deadlock but
-     * update can have a del/ins index component and can deadlock -- in future 
-     * consider reordering for single upd stmts (only if performance 
+     * update can have a del/ins index component and can deadlock -- in future
+     * consider reordering for single upd stmts (only if performance
      * improves so this requires a solid test). */
     if (sess->tran_rows > 1 && gbl_reorder_idx_writes)
         iq->osql_flags |= OSQL_FLAGS_REORDER_IDX_ON;
@@ -1347,9 +1395,9 @@ int bplog_schemachange_wait(struct ireq *iq, int rc)
          * the rest of schema change code -finalize, callback hooks- do NOT
          * trigger anymore (they should not, they will do it when future resume
          * finishes)
-         * NOTE2: if sc_should_abort is set, the bplog writer will call 
-         * backout_schema_change and sc_abort callback, which they will 
-         * clear any persistent and in-mem structures 
+         * NOTE2: if sc_should_abort is set, the bplog writer will call
+         * backout_schema_change and sc_abort callback, which they will
+         * clear any persistent and in-mem structures
          */
         csc2_free_all();
         struct schema_change_type *next;
@@ -1357,7 +1405,7 @@ int bplog_schemachange_wait(struct ireq *iq, int rc)
         while (sc != NULL) {
             next = sc->sc_next;
             /* this can happen for multiddl, if one table finished do_ddl
-             * while the second table was caught by downgrade 
+             * while the second table was caught by downgrade
              */
             if (sc->newdb && sc->newdb->handle) {
                 int bdberr = 0;
@@ -1610,7 +1658,7 @@ int resume_sc_multiddl_txn(sc_list_t *scl)
     /* this starts schema changeas;
      * the alters have to register themselves inline,
      * but the rest of the execution is done in parallel
-     * waiting is done by a separate thread that will finalize 
+     * waiting is done by a separate thread that will finalize
      * the schema change
      * NOTE: schema changes will be queued in iq->sc_pending
      *

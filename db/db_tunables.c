@@ -374,7 +374,7 @@ extern size_t gbl_lk_parts;
 extern size_t gbl_lkr_hash;
 extern size_t gbl_lkr_parts;
 
-extern uint8_t _non_dedicated_subnet;
+extern int _non_dedicated_subnet;
 
 extern char *gbl_crypto;
 extern char *gbl_spfile_name;

@@ -1665,7 +1665,7 @@ static void read_comdb2db_environment_cfg(cdb2_hndl_tp *hndl, const char *comdb2
         process_env_var_str_on_off("COMDB2_CONFIG_ENFORCE_API_CALL_TIMEOUT", &CDB2_ENFORCE_API_CALL_TIMEOUT,
                                    &cdb2_enforce_api_call_timeout_set_from_env);
         process_env_var_str_on_off("COMDB2_CONFIG_NON_THREADED_IDENTITY", &cdb2_non_threaded_identity,
-                                   &cdb2_non_threaded_identity);
+                                   &cdb2_non_threaded_identity_from_env);
         process_env_var_int("COMDB2_CONFIG_COMDB2DB_TIMEOUT", &COMDB2DB_TIMEOUT, &cdb2_comdb2db_timeout_set_from_env);
         process_env_var_int("COMDB2_CONFIG_SOCKET_TIMEOUT", &CDB2_SOCKET_TIMEOUT, &cdb2_socket_timeout_set_from_env);
         process_env_var_int("COMDB2_CONFIG_PROTOBUF_SIZE", &CDB2_PROTOBUF_SIZE, &cdb2_protobuf_size_set_from_env);

@@ -1435,6 +1435,8 @@ static int close_dbs_int(bdb_state_type *bdb_state, DB_TXN *tid, int flags, int 
                 fileid_str(fileid, fid_str);
                 logmsg(LOGMSG_DEBUG, "%s:%d  closing fileid %s\n", __func__, __LINE__, fid_str);
                 if (bdb_close_flags & BDB_CLOSE_FLAGS_CLR_UFID) {
+                    logmsg(LOGMSG_WARN, "%s: clear_ufid_hash for %s fname=%s\n", __func__, bdb_state->name,
+                           dbp->fname ? dbp->fname : "(null)");
                     rc = dbp->clear_ufid_hash(dbp, tid, flags);
                     if (rc != 0) {
                         logmsg(LOGMSG_WARN, "%s: error cleaning ufid %s[%d][%d]: %d %s\n", __func__, bdb_state->name,

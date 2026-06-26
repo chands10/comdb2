@@ -6551,6 +6551,55 @@ static int bdb_del_file(bdb_state_type *bdb_state, DB_TXN *tid, char *filename,
         dbenv = bdb_state->dbenv;
 
     if ((rc = access(pname, F_OK)) == 0) {
+        extern int gbl_clear_ufid_on_db_close;
+
+        /* Before deleting the file, close any open handles pointing to it.
+         * Handles can accumulate in gbl_db_open_list from startup recovery
+         * (DB_AM_RECOVER) or from reload_csc2_schema. Without closing them
+         * first, the deleted file's inode stays alive and lsof shows it as
+         * "(deleted)", preventing disk space from being reclaimed. */
+        if (gbl_clear_ufid_on_db_close) {
+            DB *dbp_tmp = NULL;
+            int open_rc = db_create(&dbp_tmp, dbenv, 0);
+            if (open_rc == 0) {
+                open_rc = dbp_tmp->open(dbp_tmp, NULL, pname, NULL, DB_BTREE, 0, 0666);
+            }
+            if (open_rc == 0) {
+                u_int8_t fileid[DB_FILE_ID_LEN];
+                dbp_tmp->get_fileid(dbp_tmp, fileid);
+                dbp_tmp->clear_ufid_hash(dbp_tmp, NULL, 0);
+                dbp_tmp->close(dbp_tmp, DB_NOSYNC);
+                dbp_tmp = NULL;
+
+                /* Also scan gbl_db_open_list for any handle with this
+                 * fileid (covers handles not in the ufid-hash). */
+                extern DB_OPEN_LIST gbl_db_open_list;
+                DB_WALKBACK *wb;
+                DB **to_close = NULL;
+                int n = 0, cap = 0;
+                Pthread_mutex_lock(&gbl_db_open_list.lk);
+                LIST_FOREACH(wb, &gbl_db_open_list, lnk)
+                {
+                    if (F_ISSET(wb->dbp, DB_AM_RECOVER) && memcmp(wb->dbp->fileid, fileid, DB_FILE_ID_LEN) == 0) {
+                        if (n >= cap) {
+                            cap = cap ? cap * 2 : 4;
+                            to_close = realloc(to_close, cap * sizeof(DB *));
+                        }
+                        to_close[n++] = wb->dbp;
+                    }
+                }
+                Pthread_mutex_unlock(&gbl_db_open_list.lk);
+                for (int i = 0; i < n; i++) {
+                    logmsg(LOGMSG_WARN, "bdb_del_file: closing open handle for %s\n", filename);
+                    __db_close(to_close[i], NULL, DB_NOSYNC);
+                }
+                if (to_close)
+                    free(to_close);
+            } else if (open_rc != ENOENT && dbp_tmp) {
+                dbp_tmp->close(dbp_tmp, DB_NOSYNC);
+            }
+        }
+
         int rc = dbenv->dbremove(dbenv, tid, filename, NULL, 0);
         if (rc) {
            logmsg(LOGMSG_ERROR, "bdb_del_file: dbremove %s failed: %d %s\n", filename, rc,

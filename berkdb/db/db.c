@@ -1012,8 +1012,16 @@ scan:
 		DB **to_close = NULL;
 		int n = 0, cap = 0;
 
+		char target_fid[DB_FILE_ID_LEN * 2 + 1] = {0};
+		for (int _i = 0; _i < DB_FILE_ID_LEN; _i++)
+			snprintf(target_fid + _i*2, 3, "%02x",
+			    ((unsigned char*)dbp->fileid)[_i]);
+		int total = 0, recover_count = 0;
 		Pthread_mutex_lock(&gbl_db_open_list.lk);
 		LIST_FOREACH(wb, &gbl_db_open_list, lnk) {
+			total++;
+			if (F_ISSET(wb->dbp, DB_AM_RECOVER))
+				recover_count++;
 			if (wb->dbp != dbp &&
 			    F_ISSET(wb->dbp, DB_AM_RECOVER) &&
 			    memcmp(wb->dbp->fileid, dbp->fileid,
@@ -1027,6 +1035,10 @@ scan:
 			}
 		}
 		Pthread_mutex_unlock(&gbl_db_open_list.lk);
+		logmsg(LOGMSG_WARN,
+		    "%s: scan for %s fid=%s: total=%d recover=%d matches=%d\n",
+		    __func__, dbp->fname ? dbp->fname : "(null)",
+		    target_fid, total, recover_count, n);
 
 		for (int i = 0; i < n; i++) {
 			logmsg(LOGMSG_WARN,

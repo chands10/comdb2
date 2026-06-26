@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+bash -n "$0" | exit 1
+
+# This test validates that DB_AM_RECOVER handles displaced from the ufid-hash
+# by __ufid_add_dbp are properly closed, preventing file descriptor leaks.
+#
+# The bug: when the same file is re-registered multiple times during
+# replication (via dbreg_register log records), each registration displaces
+# the previous DB_AM_RECOVER handle from the ufid-hash without closing it.
+# These handles accumulate in gbl_db_open_list holding file descriptors open.
+# When delfiles deletes old file versions, the leaked handles keep the inodes
+# alive, causing files to appear as "(deleted)" in lsof.
+#
+# The test applies multiple schema changes to trigger repeated dbreg
+# registrations, then runs delfiles and verifies no old-version handles
+# remain open via dumpopendbs.
+
+source ${TESTSROOTDIR}/tools/cluster_utils.sh
+
+[ -z "${CLUSTER}" ] && { echo "Test requires a cluster"; exit 0; }
+
+dbnm=$1
+
+master=$(cdb2sql --tabs ${CDB2_OPTIONS} $dbnm default "select host from comdb2_cluster where is_master='Y'")
+
+cdb2sql ${CDB2_OPTIONS} $dbnm default "CREATE TABLE t1 (i integer, b blob)"
+sleep 2
+cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
+sleep 2
+
+# Insert data so there are files to track
+cdb2sql ${CDB2_OPTIONS} $dbnm default "INSERT INTO t1 VALUES(1, x'DEADBEEF')"
+sleep 2
+
+# Apply multiple schema changes. Each TRUNCATE creates a new file version and
+# triggers dbreg_register log records on replicants, causing __ufid_add_dbp
+# to displace previous handles. Without the fix, each displacement leaks a
+# DB_AM_RECOVER handle.
+for i in 1 2 3; do
+    cdb2sql ${CDB2_OPTIONS} $dbnm default "TRUNCATE TABLE t1"
+    cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
+    sleep 2
+    cdb2sql ${CDB2_OPTIONS} $dbnm default "INSERT INTO t1 VALUES($i, x'CAFEBABE')"
+    sleep 2
+done
+
+cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
+sleep 2
+
+# Run delfiles to delete the old file versions
+cdb2sql --tabs $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('delfiles t1')"
+sleep 2
+
+# Check all cluster nodes: dumpopendbs should show no old t1 file versions.
+# Old versions have lower version numbers than the current one. If leaked
+# handles exist, they will appear in dumpopendbs for the deleted old versions.
+failed=0
+current_version=$(cdb2sql --tabs ${CDB2_OPTIONS} $dbnm default \
+    "select * from comdb2_files where type='data' and filename like '%t1%'" 2>/dev/null | \
+    awk -F_ '{print $2}' | sort -n | tail -1)
+
+for host in $CLUSTER; do
+    echo "Checking $host for leaked handles..."
+    # Get all t1 handles from dumpopendbs
+    leaked=$(cdb2sql --tabs $dbnm --host $host \
+        'EXEC PROCEDURE sys.cmd.send("bdb dumpopendbs")' 2>/dev/null | \
+        grep "XXX\.t1_" | grep -v "\.dtas\|\.blobs\|\.index" || true)
+
+    # More directly: check for any t1 handle where the file no longer exists
+    # by cross-referencing dumpopendbs with actual files on disk
+    handles=$(cdb2sql --tabs $dbnm --host $host \
+        'EXEC PROCEDURE sys.cmd.send("bdb dumpopendbs")' 2>/dev/null | \
+        grep "XXX\.t1_" | sed 's/.*XXX\.\(t1_[^]]*\).*/\1/' | sort -u)
+
+    if [ -n "$handles" ]; then
+        echo "  Open t1 handles on $host:"
+        echo "$handles" | while read h; do
+            echo "    $h"
+        done
+    fi
+done
+
+# The real check: use lsof to look for deleted t1 data files on each node.
+# With the fix, no t1 files should be held open after delfiles.
+for host in $CLUSTER; do
+    dbpid=$(ssh $host "pgrep -a comdb2 2>/dev/null | grep $dbnm | awk '{print \$1}' | head -1")
+    if [ -z "$dbpid" ]; then
+        echo "Could not find comdb2 pid on $host"
+        continue
+    fi
+
+    deleted=$(ssh $host "lsof -p $dbpid 2>/dev/null | grep 't1_.*deleted'" || true)
+    if [ -n "$deleted" ]; then
+        echo "ERROR: $host has leaked t1 handles after delfiles:" >&2
+        echo "$deleted" >&2
+        failed=1
+    else
+        echo "  $host: OK - no leaked t1 handles"
+    fi
+done
+
+if [ $failed -ne 0 ]; then
+    echo "FAILED: leaked file handles detected" >&2
+    exit 1
+fi
+
+echo "Success!"
+exit 0

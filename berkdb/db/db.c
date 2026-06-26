@@ -981,30 +981,64 @@ __db_clear_ufid_hash(dbp, txn, flags)
 	ufid_dbp = NULL;
 
 	ret = __ufid_find_db_for_removal(dbenv, txn, &ufid_dbp, dbp->fileid, &dummy_lsn);
-	logmsg(LOGMSG_WARN, "%s: ufid_find for %s ret=%d ufid_dbp=%p recover=%d\n",
-	    __func__, dbp->fname ? dbp->fname : "(null)", ret, ufid_dbp,
-	    ufid_dbp ? F_ISSET(ufid_dbp, DB_AM_RECOVER) : -1);
 	if (ufid_dbp == dbp) {
 		/* prevent double-close */
-		return 0;
+		goto scan;
 	}
 
-	if (ret != 0 || ufid_dbp == NULL || !F_ISSET(ufid_dbp, DB_AM_RECOVER)) {
-		/* Ignore this file if its fileid is deleted, missing, or not opened by recovery */
-		return 0;
+	if (ret == 0 && ufid_dbp != NULL && F_ISSET(ufid_dbp, DB_AM_RECOVER)) {
+		/* Keep the trace on server */
+		f = io_override_get_std();
+		io_override_set_std(stdout);
+		logmsg(LOGMSG_WARN, "%s: closing ufid hash open DB handle to %s\n", __func__, dbp->fname);
+		io_override_set_std(f);
+
+		ret = __db_close(ufid_dbp, txn, flags);
+		if (ret != 0) {
+			__db_err(dbenv, "__db_close(%s)", dbp->fname);
+		}
 	}
 
-	/* Keep the trace on server */
-	f = io_override_get_std();
-	io_override_set_std(stdout);
-	logmsg(LOGMSG_WARN, "%s: closing ufid hash open DB handle to %s\n", __func__, dbp->fname);
-	io_override_set_std(f);
+scan:
+	/*
+	 * Also scan gbl_db_open_list for any DB_AM_RECOVER handles with the
+	 * same fileid that were not tracked in the ufid-hash. These accumulate
+	 * when __ufid_add_dbp is skipped (e.g. due to __dbreg_assign_id
+	 * failure) but the handle was still added to gbl_db_open_list by
+	 * __db_open.
+	 */
+	{
+		DB_WALKBACK *wb;
+		DB **to_close = NULL;
+		int n = 0, cap = 0;
 
-	ret = __db_close(ufid_dbp, txn, flags);
-	if (ret != 0) {
-		__db_err(dbenv, "__db_close(%s)", dbp->fname);
+		Pthread_mutex_lock(&gbl_db_open_list.lk);
+		LIST_FOREACH(wb, &gbl_db_open_list, lnk) {
+			if (wb->dbp != dbp &&
+			    F_ISSET(wb->dbp, DB_AM_RECOVER) &&
+			    memcmp(wb->dbp->fileid, dbp->fileid,
+			           DB_FILE_ID_LEN) == 0) {
+				if (n >= cap) {
+					cap = cap ? cap * 2 : 4;
+					to_close = realloc(to_close,
+					    cap * sizeof(DB *));
+				}
+				to_close[n++] = wb->dbp;
+			}
+		}
+		Pthread_mutex_unlock(&gbl_db_open_list.lk);
+
+		for (int i = 0; i < n; i++) {
+			logmsg(LOGMSG_WARN,
+			    "%s: closing leaked DB_AM_RECOVER handle for %s\n",
+			    __func__, dbp->fname ? dbp->fname : "(null)");
+			__db_close(to_close[i], NULL, DB_NOSYNC);
+		}
+		if (to_close)
+			free(to_close);
 	}
-	return (ret);
+
+	return 0;
 
 }
 extern DB_OPEN_LIST gbl_db_open_list;

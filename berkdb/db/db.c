@@ -981,6 +981,9 @@ __db_clear_ufid_hash(dbp, txn, flags)
 	ufid_dbp = NULL;
 
 	ret = __ufid_find_db_for_removal(dbenv, txn, &ufid_dbp, dbp->fileid, &dummy_lsn);
+	logmsg(LOGMSG_WARN, "%s: ufid_find for %s ret=%d ufid_dbp=%p recover=%d\n",
+	    __func__, dbp->fname ? dbp->fname : "(null)", ret, ufid_dbp,
+	    ufid_dbp ? F_ISSET(ufid_dbp, DB_AM_RECOVER) : -1);
 	if (ufid_dbp == dbp) {
 		/* prevent double-close */
 		return 0;

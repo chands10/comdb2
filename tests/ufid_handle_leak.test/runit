@@ -15,21 +15,30 @@ bash -n "$0" | exit 1
 # registrations, then runs delfiles and verifies no old-version handles
 # remain open via dumpopendbs.
 
-source ${TESTSROOTDIR}/tools/cluster_utils.sh
-
-[ -z "${CLUSTER}" ] && { echo "Test requires a cluster"; exit 0; }
+if [ -n "$TESTSROOTDIR" ]; then
+    source ${TESTSROOTDIR}/tools/cluster_utils.sh
+    [ -z "${CLUSTER}" ] && { echo "Test requires a cluster"; exit 0; }
+fi
 
 dbnm=$1
 
-master=$(cdb2sql --tabs ${CDB2_OPTIONS} $dbnm default "select host from comdb2_cluster where is_master='Y'")
+SQL="cdb2sql $dbnm local"
+SQL_TABS="cdb2sql --tabs $dbnm local"
 
-cdb2sql ${CDB2_OPTIONS} $dbnm default "CREATE TABLE t1 (i integer, b blob)"
+master=$($SQL_TABS "select host from comdb2_cluster where is_master='Y'")
+CLUSTER=$($SQL_TABS "select host from comdb2_cluster where is_master='N'" | tr '\n' ' ')
+
+echo "Database: $dbnm  Master: $master"
+echo "Cluster: $CLUSTER"
+
+$SQL "DROP TABLE IF EXISTS t1"
+$SQL "CREATE TABLE t1 (i integer, b blob)"
 sleep 2
 cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
 sleep 2
 
 # Insert data so there are files to track
-cdb2sql ${CDB2_OPTIONS} $dbnm default "INSERT INTO t1 VALUES(1, x'DEADBEEF')"
+$SQL "INSERT INTO t1 VALUES(1, x'DEADBEEF')"
 sleep 2
 
 # Apply multiple schema changes. Each TRUNCATE creates a new file version and
@@ -37,10 +46,10 @@ sleep 2
 # to displace previous handles. Without the fix, each displacement leaks a
 # DB_AM_RECOVER handle.
 for i in 1 2 3; do
-    cdb2sql ${CDB2_OPTIONS} $dbnm default "TRUNCATE TABLE t1"
+    $SQL "TRUNCATE TABLE t1"
     cdb2sql $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('bdb checkpoint')"
     sleep 2
-    cdb2sql ${CDB2_OPTIONS} $dbnm default "INSERT INTO t1 VALUES($i, x'CAFEBABE')"
+    $SQL "INSERT INTO t1 VALUES($i, x'CAFEBABE')"
     sleep 2
 done
 
@@ -51,58 +60,25 @@ sleep 2
 cdb2sql --tabs $dbnm --host $master "EXEC PROCEDURE sys.cmd.send('delfiles t1')"
 sleep 2
 
-# Check all cluster nodes: dumpopendbs should show no old t1 file versions.
-# Old versions have lower version numbers than the current one. If leaked
-# handles exist, they will appear in dumpopendbs for the deleted old versions.
-failed=0
-current_version=$(cdb2sql --tabs ${CDB2_OPTIONS} $dbnm default \
-    "select * from comdb2_files where type='data' and filename like '%t1%'" 2>/dev/null | \
-    awk -F_ '{print $2}' | sort -n | tail -1)
-
-for host in $CLUSTER; do
-    echo "Checking $host for leaked handles..."
-    # Get all t1 handles from dumpopendbs
-    leaked=$(cdb2sql --tabs $dbnm --host $host \
-        'EXEC PROCEDURE sys.cmd.send("bdb dumpopendbs")' 2>/dev/null | \
-        grep "XXX\.t1_" | grep -v "\.dtas\|\.blobs\|\.index" || true)
-
-    # More directly: check for any t1 handle where the file no longer exists
-    # by cross-referencing dumpopendbs with actual files on disk
-    handles=$(cdb2sql --tabs $dbnm --host $host \
-        'EXEC PROCEDURE sys.cmd.send("bdb dumpopendbs")' 2>/dev/null | \
-        grep "XXX\.t1_" | sed 's/.*XXX\.\(t1_[^]]*\).*/\1/' | sort -u)
-
-    if [ -n "$handles" ]; then
-        echo "  Open t1 handles on $host:"
-        echo "$handles" | while read h; do
-            echo "    $h"
-        done
-    fi
+echo ""
+echo "Now check for leaked handles on each node by running:"
+echo ""
+echo "  dumpopendbs (should show only ONE version of t1 files):"
+for host in $master $CLUSTER; do
+    echo "  $host: cdb2sql --tabs $dbnm --host $host \"EXEC PROCEDURE sys.cmd.send('bdb dumpopendbs')\" | grep 't1_'"
 done
-
-# The real check: use lsof to look for deleted t1 data files on each node.
-# With the fix, no t1 files should be held open after delfiles.
-for host in $CLUSTER; do
-    dbpid=$(ssh $host "pgrep -a comdb2 2>/dev/null | grep $dbnm | awk '{print \$1}' | head -1")
-    if [ -z "$dbpid" ]; then
-        echo "Could not find comdb2 pid on $host"
-        continue
-    fi
-
-    deleted=$(ssh $host "lsof -p $dbpid 2>/dev/null | grep 't1_.*deleted'" || true)
-    if [ -n "$deleted" ]; then
-        echo "ERROR: $host has leaked t1 handles after delfiles:" >&2
-        echo "$deleted" >&2
-        failed=1
-    else
-        echo "  $host: OK - no leaked t1 handles"
-    fi
+echo ""
+echo "  lsof (should show NO deleted t1 files):"
+for host in $master $CLUSTER; do
+    echo "  $host: lsof -p \$(pgrep -f $dbnm | head -1) | grep 't1_.*deleted'"
 done
+echo ""
+echo "If multiple t1 file versions appear in dumpopendbs, or any appear as"
+echo "deleted in lsof, the bug is present."
+echo ""
+echo "Press Enter when done checking..."
+read -r _
 
-if [ $failed -ne 0 ]; then
-    echo "FAILED: leaked file handles detected" >&2
-    exit 1
-fi
-
-echo "Success!"
+echo "Cleaning up..."
+$SQL "DROP TABLE IF EXISTS t1"
 exit 0

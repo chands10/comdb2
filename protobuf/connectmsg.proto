@@ -8,4 +8,5 @@ message net_connectmsg {
   optional int32 from_portnum = 4; // required
   optional string dbname = 5; // required
   optional bool ssl = 6;
+  optional bool is_physrep = 7;
 }

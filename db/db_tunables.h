@@ -1365,6 +1365,10 @@ REGISTER_TUNABLE("debug.protobuf_connectmsg_dbname_check",
                  "Send the wrong dbname in the connect message to test that a node in the same cluster should not "
                  "connect in this case (Default: 0)",
                  TUNABLE_BOOLEAN, &gbl_debug_pb_connectmsg_dbname_check, INTERNAL, NULL, NULL, NULL, NULL);
+REGISTER_TUNABLE("debug.protobuf_connectmsg_physrep_check",
+                 "Pretend to be a physrep node in the connect message to test that a physrep node should not "
+                 "connect to a non-physrep cluster (Default: 0)",
+                 TUNABLE_BOOLEAN, &gbl_debug_pb_connectmsg_physrep_check, INTERNAL, NULL, NULL, NULL, NULL);
 REGISTER_TUNABLE("debug.protobuf_connectmsg_gibberish",
                  "Don't understand the new protobuf connnect message to test connecting with older versions of comdb2"
                  " (Default: 0)",

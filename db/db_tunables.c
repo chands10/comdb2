@@ -478,6 +478,7 @@ extern int gbl_debug_omit_idx_write;
 extern int gbl_debug_omit_blob_write;
 extern int gbl_debug_skip_constraintscheck_on_insert;
 extern int gbl_debug_pb_connectmsg_dbname_check;
+extern int gbl_debug_pb_connectmsg_physrep_check;
 extern int gbl_debug_pb_connectmsg_gibberish;
 extern int gbl_debug_omit_zap_on_rebuild;
 extern int gbl_debug_txn_sleep;

@@ -116,7 +116,9 @@ extern char gbl_dbname[MAX_DBNAME_LENGTH];
 extern char *gbl_myhostname;
 extern int gbl_accept_on_child_nets;
 extern int gbl_create_mode;
+extern int gbl_is_physical_replicant;
 extern int gbl_debug_pb_connectmsg_dbname_check;
+extern int gbl_debug_pb_connectmsg_physrep_check;
 extern int gbl_debug_pb_connectmsg_gibberish;
 extern int gbl_exit;
 extern int gbl_fullrecovery;
@@ -820,6 +822,8 @@ struct accept_info {
     char *dbname;
     struct ssl_data *ssl_data;
     char *origin;
+    int has_is_physrep;
+    int is_physrep;
 };
 
 static int pending_connections; /* accepted, but not processed first-byte */
@@ -2603,6 +2607,17 @@ static int validate_host(struct accept_info *a)
         logmsg(LOGMSG_ERROR, "connection from node:%d host:%s not allowed\n", a->c.from_nodenum, host);
         return -1;
     }
+    if (a->has_is_physrep) {
+        if (a->is_physrep && !gbl_is_physical_replicant) {
+            logmsg(LOGMSG_ERROR, "%s fd:%d rejecting physrep node %s: not a physrep cluster\n", __func__, a->fd, host);
+            return -1;
+        }
+        if (!a->is_physrep && gbl_is_physical_replicant) {
+            logmsg(LOGMSG_ERROR, "%s fd:%d rejecting non-physrep node %s: this is a physrep cluster\n", __func__, a->fd,
+                   host);
+            return -1;
+        }
+    }
     if (a->c.flags & CONNECT_MSG_SSL) {
         if (!SSL_IS_ABLE(gbl_rep_ssl_mode)) {
             logmsg(LOGMSG_ERROR, "Peer requested SSL, but I don't have an SSL key pair.\n");
@@ -2740,6 +2755,10 @@ static int process_connect_message_proto(struct accept_info *a)
     if (c->has_ssl && c->ssl) {
         a->c.flags |= CONNECT_MSG_SSL;
     }
+    if (c->has_is_physrep) {
+        a->has_is_physrep = 1;
+        a->is_physrep = c->is_physrep;
+    }
     net_connectmsg__free_unpacked(c, NULL);
     return bad ? -1 : validate_host(a);
 }
@@ -2796,6 +2815,8 @@ static int wr_connect_msg_proto(struct event_info *e)
         connect_message.has_ssl = 1;
         connect_message.ssl = 1;
     }
+    connect_message.has_is_physrep = 1;
+    connect_message.is_physrep = gbl_is_physical_replicant || gbl_debug_pb_connectmsg_physrep_check;
 
     // send message
     int len = net_connectmsg__get_packed_size(&connect_message);

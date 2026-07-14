@@ -2607,6 +2607,14 @@ static int validate_host(struct accept_info *a)
         logmsg(LOGMSG_ERROR, "connection from node:%d host:%s not allowed\n", a->c.from_nodenum, host);
         return -1;
     }
+    /* Confirm the connection's source address really belongs to the claimed
+       hostname, so a rogue node can't impersonate a trusted peer just by
+       putting its hostname in the connect message. */
+    if (net_validate_connect_host(host, &a->ss) != 0) {
+        logmsg(LOGMSG_ERROR, "%s fd:%d rejecting connection from node:%d host:%s: source address does not match\n",
+               __func__, a->fd, a->c.from_nodenum, host);
+        return -1;
+    }
     if (a->has_is_physrep) {
         if (a->is_physrep && !gbl_is_physical_replicant) {
             logmsg(LOGMSG_ERROR, "%s fd:%d rejecting physrep node %s: not a physrep cluster\n", __func__, a->fd, host);

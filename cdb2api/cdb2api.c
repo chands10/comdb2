@@ -495,26 +495,26 @@ extern void CDB2_UNINSTALL_LIBS(const char *);
 void (*cdb2_uninstall)(const char *) = CDB2_UNINSTALL_LIBS;
 
 #ifdef CDB2API_SERVER // identity_cb is non-static, because simpleauth needs to set it
-#   ifdef CDB2_IDENTITY_CALLBACKS
-        extern struct cdb2_identity CDB2_IDENTITY_CALLBACKS;
-        struct cdb2_identity *identity_cb = &CDB2_IDENTITY_CALLBACKS;
-#   else
-        struct cdb2_identity *identity_cb = NULL;
-#   endif
+#ifdef CDB2_IDENTITY_CALLBACKS
+extern struct cdb2_identity CDB2_IDENTITY_CALLBACKS;
+struct cdb2_identity *identity_cb = &CDB2_IDENTITY_CALLBACKS;
 #else
-#   ifdef CDB2_IDENTITY_CALLBACKS
-        extern struct cdb2_identity CDB2_IDENTITY_CALLBACKS;
-        static struct cdb2_identity *identity_cb = &CDB2_IDENTITY_CALLBACKS;
-#   else
-        static struct cdb2_identity *identity_cb = NULL;
-#   endif
+struct cdb2_identity *identity_cb = NULL;
+#endif
+#else
+#ifdef CDB2_IDENTITY_CALLBACKS
+extern struct cdb2_identity CDB2_IDENTITY_CALLBACKS;
+static struct cdb2_identity *identity_cb = &CDB2_IDENTITY_CALLBACKS;
+#else
+static struct cdb2_identity *identity_cb = NULL;
+#endif
 #endif
 
 #if defined(CDB2API_SERVER) || !defined(CDB2_PUBLISH_EVENT_CALLBACKS) || !defined(CDB2API_TEST)
-    static struct cdb2_publish_event *publish_event_cb = NULL;
+static struct cdb2_publish_event *publish_event_cb = NULL;
 #elif defined(CDB2_PUBLISH_EVENT_CALLBACKS)
-    extern struct cdb2_publish_event CDB2_PUBLISH_EVENT_CALLBACKS;
-    static struct cdb2_publish_event *publish_event_cb = &CDB2_PUBLISH_EVENT_CALLBACKS;
+extern struct cdb2_publish_event CDB2_PUBLISH_EVENT_CALLBACKS;
+static struct cdb2_publish_event *publish_event_cb = &CDB2_PUBLISH_EVENT_CALLBACKS;
 #endif
 
 static pthread_mutex_t cdb2_sockpool_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -9148,9 +9148,8 @@ out:
     return rc;
 }
 
-static cdb2_event *cdb2_register_event_varg(cdb2_hndl_tp *hndl, cdb2_event_type types,
-                                cdb2_event_ctrl ctrls, cdb2_event_callback cb,
-                                void *user_arg, int nargs, va_list ap)
+static cdb2_event *cdb2_register_event_varg(cdb2_hndl_tp *hndl, cdb2_event_type types, cdb2_event_ctrl ctrls,
+                                            cdb2_event_callback cb, void *user_arg, int nargs, va_list ap)
 {
     cdb2_event *ret;
     cdb2_event *curr;
@@ -9191,9 +9190,8 @@ static cdb2_event *cdb2_register_event_varg(cdb2_hndl_tp *hndl, cdb2_event_type 
     return ret;
 }
 
-cdb2_event *cdb2_register_event(cdb2_hndl_tp *hndl, cdb2_event_type types,
-                                cdb2_event_ctrl ctrls, cdb2_event_callback cb,
-                                void *user_arg, int nargs, ...)
+cdb2_event *cdb2_register_event(cdb2_hndl_tp *hndl, cdb2_event_type types, cdb2_event_ctrl ctrls,
+                                cdb2_event_callback cb, void *user_arg, int nargs, ...)
 {
     va_list ap;
     va_start(ap, nargs);

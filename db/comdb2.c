@@ -5734,6 +5734,7 @@ void exec_tool(int argc, char *argv[])
 
 int main(int argc, char **argv)
 {
+    printf("SALIL SPECIAL VERSION\n");
     int rc;
 
     char *exe = NULL;

@@ -4169,6 +4169,10 @@ static int init(int argc, char **argv)
         return -1;
     }
 
+    if (gbl_fullrecovery && gbl_uses_externalauth) {
+        logmsg(LOGMSG_USER, "External authentication is enabled during full recovery\n");
+    }
+
     if (gbl_berkdb_iomap) 
         bdb_berkdb_iomap_set(thedb->bdb_env, 1);
 

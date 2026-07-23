@@ -1302,9 +1302,6 @@ static int externalauth_update(void *context, void *value)
     int val = *(int *)value;
     if (val) {
         logmsg(LOGMSG_USER, "External authentication enabled\n");
-        if (gbl_fullrecovery) {
-            logmsg(LOGMSG_USER, "External authentication enabled during full recovery\n");
-        }
     } else {
         logmsg(LOGMSG_USER, "External authentication disabled\n");
     }

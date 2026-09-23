@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+bash -n "$0" || exit 1
+
+total=500000
+dbname=${DBNAME}
+tier=default
+cfg=$DBDIR/comdb2db.cfg
+repro=${TESTSBUILDDIR}/cdb2api_chunk_wrongstate
+dblog=${TESTDIR}/logs/${DBNAME}.db
+
+function wrongstate_count {
+    local n
+    n=$(grep -c 'api should have blocked this' ${dblog} 2>/dev/null)
+    echo ${n:-0}
+}
+
+echo "=============================================================="
+echo "RUN 1: check_hb_on_blocked_write=0 (chunk override patched out)"
+echo "=============================================================="
+sed -i '/check_hb_on_blocked_write/d' ${cfg}
+echo 'comdb2_config:check_hb_on_blocked_write=0' >> ${cfg}
+
+before=$(wrongstate_count)
+${repro} ${dbname} ${tier} ${total}
+rc=$?
+after=$(wrongstate_count)
+echo "client exit:${rc}  'api should have blocked this' in db log: ${before} -> ${after}"
+echo "--- db log, wrong-state lines ---"
+grep -E 'wrong state|api should have blocked' ${dblog} | tail -10
+
+if [[ ${after} -le ${before} ]]; then
+    echo >&2 'chunk_wrongstate - DID NOT REPRODUCE'
+    exit 1
+fi
+
+echo
+echo "=============================================================="
+echo "RUN 2: check_hb_on_blocked_write=1 (control)"
+echo "=============================================================="
+sed -i 's/comdb2_config:check_hb_on_blocked_write=0/comdb2_config:check_hb_on_blocked_write=1/' ${cfg}
+
+before=$(wrongstate_count)
+${repro} ${dbname} ${tier} ${total}
+rc=$?
+after=$(wrongstate_count)
+echo "client exit:${rc}  'api should have blocked this' in db log: ${before} -> ${after}"
+
+if [[ ${after} -ne ${before} ]]; then
+    echo >&2 'chunk_wrongstate - control run also hit wrong state'
+    exit 1
+fi
+
+echo 'chunk_wrongstate - reproduced'
+exit 0

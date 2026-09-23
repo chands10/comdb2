@@ -4816,8 +4816,10 @@ static int cdb2_send_query(cdb2_hndl_tp *hndl, cdb2_hndl_tp *event_hndl, COMDB2B
     if (rc != len)
         debugprint("cdb2buf_write rc = %d (len = %d)\n", rc, len);
 
-    // Always enable for chunk transactions
-    int check_hb_on_blocked_write_final = (check_hb_on_blocked_write || (hndl && hndl->is_chunk != CHUNK_NO));
+    // REPRO-ONLY (do not commit): chunk override removed to emulate the
+    // legacy branch, where check_hb_on_blocked_write is the only gate.
+    // Restore to: (check_hb_on_blocked_write || (hndl && hndl->is_chunk != CHUNK_NO))
+    int check_hb_on_blocked_write_final = check_hb_on_blocked_write;
     int timeout_error = 0;
     rc = cdb2buf_flush_chk_timeout(sb, &timeout_error);
 

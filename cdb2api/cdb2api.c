@@ -67,6 +67,8 @@ static char api_driver_version[] = QUOTE(API_DRIVER_VERSION);
 #define COMDB2DB_DEV_NUM 192779
 
 #define MAX_BUFSIZE_ONSTACK 8192
+/* A real dbinfo response for MAX_NODES nodes is a few tens of KB */
+#define MAX_DBINFO_RESPONSE_LEN (1024 * 1024)
 static char COMDB2DB_OVERRIDE[32] = {0};
 static int COMDB2DB_NUM_OVERRIDE = 0;
 
@@ -390,6 +392,7 @@ MAKE_CDB2API_TEST_COUNTER(num_cache_lru_evicts)
 MAKE_CDB2API_TEST_COUNTER(num_cache_hits)
 MAKE_CDB2API_TEST_COUNTER(num_cache_misses)
 MAKE_CDB2API_TEST_COUNTER(num_stale_cache_rejects)
+MAKE_CDB2API_TEST_COUNTER(num_dbinfo_bad_header)
 MAKE_CDB2API_TEST_COUNTER(num_sockpool_recv)
 MAKE_CDB2API_TEST_COUNTER(num_sockpool_send)
 MAKE_CDB2API_TEST_COUNTER(num_sockpool_recv_timeouts)
@@ -7984,6 +7987,21 @@ again:
     hdr.type = ntohl(hdr.type);
     hdr.compression = ntohl(hdr.compression);
     hdr.length = ntohl(hdr.length);
+
+    /* Don't trust the length of something that isn't a dbinfo response, eg. stray bytes on a pooled socket */
+    if (hdr.type != RESPONSE_HEADER__DBINFO_RESPONSE || hdr.length <= 0 || hdr.length > MAX_DBINFO_RESPONSE_LEN) {
+        LOG_CALL("%s: bad hdr fd %d type %d length %d\n", __func__, cdb2buf_fileno(sb), hdr.type, hdr.length);
+#ifdef CDB2API_TEST
+        ++num_dbinfo_bad_header;
+#endif
+        snprintf(hndl->errstr, sizeof(hndl->errstr), "%s:%d  Invalid dbinfo header from db %s type %d length %d",
+                 __func__, __LINE__, dbname, hdr.type, hdr.length);
+        cdb2buf_close(sb);
+        rc = -1;
+        if (connection_was_cached && retry_dbinfo_on_cached_connection_failure)
+            goto again;
+        goto after_callback;
+    }
 
     CDB2DBINFORESPONSE *dbinfo_response = NULL;
     char *p = NULL;
